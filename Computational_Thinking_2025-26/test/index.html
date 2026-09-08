@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Supabase Image Upload Test</title>
+</head>
+
+<body>
+
+    <h2>Supabase Image Upload Test</h2>
+
+    <input
+        type="file"
+        id="imageInput"
+        accept="image/*"
+    >
+
+    <br><br>
+
+    <button id="uploadButton">
+        Upload Image
+    </button>
+
+    <p id="status"></p>
+
+    <script type="module">
+
+        import { createClient } from
+            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+
+        // ==============================
+        // SUPABASE CONFIGURATION
+        // ==============================
+
+        const SUPABASE_URL =
+            "https://lmzuapbyfxirnyoxszno.supabase.co";
+
+        const SUPABASE_PUBLISHABLE_KEY =
+            "sb_publishable_c4omV-Y_VuqK1P7JWP2SLA_bWf4tdNz";
+
+
+        const supabase = createClient(
+            SUPABASE_URL,
+            SUPABASE_PUBLISHABLE_KEY
+        );
+
+
+        // ==============================
+        // ELEMENTS
+        // ==============================
+
+        const imageInput =
+            document.getElementById("imageInput");
+
+        const uploadButton =
+            document.getElementById("uploadButton");
+
+        const status =
+            document.getElementById("status");
+
+
+        // ==============================
+        // UPLOAD
+        // ==============================
+
+        uploadButton.addEventListener(
+            "click",
+            async () => {
+
+                const file =
+                    imageInput.files[0];
+
+
+                // No file selected
+                if (!file) {
+
+                    status.textContent =
+                        "Please select an image.";
+
+                    return;
+                }
+
+
+                // Check image type
+                if (!file.type.startsWith("image/")) {
+
+                    status.textContent =
+                        "Please select an image file.";
+
+                    return;
+                }
+
+
+                // Generate unique filename
+                const extension =
+                    file.name.split(".").pop();
+
+                const fileName =
+                    `${crypto.randomUUID()}.${extension}`;
+
+
+                // Temporary path
+                const filePath =
+                    `CT_images/${fileName}`;
+
+
+                status.textContent =
+                    "Uploading...";
+
+
+                // ==============================
+                // SUPABASE UPLOAD
+                // ==============================
+
+                const { data, error } =
+                    await supabase
+                        .storage
+                        .from("Images")
+                        .upload(
+                            filePath,
+                            file,
+                            {
+                                contentType: file.type,
+                                upsert: false
+                            }
+                        );
+
+
+                // ==============================
+                // HANDLE ERROR
+                // ==============================
+
+                if (error) {
+
+                    console.error(
+                        "Upload error:",
+                        error
+                    );
+
+                    status.textContent =
+                        "Upload failed: " +
+                        error.message;
+
+                    return;
+                }
+
+
+                // ==============================
+                // SUCCESS
+                // ==============================
+
+                console.log(
+                    "Upload successful:",
+                    data
+                );
+
+                console.log(
+                    "File path:",
+                    data.path
+                );
+
+
+                status.textContent =
+                    "Upload successful! Path: " +
+                    data.path;
+
+            }
+        );
+
+    </script>
+
+</body>
+</html>
