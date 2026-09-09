@@ -1,9 +1,12 @@
 from database.db import db
+from datetime import datetime
 from database.models import (
     User,
     Workspace,
     WorkspaceMember,
     WorkspaceSettings,
+    WorkspaceInvitation,
+    WorkspaceQuestion,
 )
 import secrets
 import string
@@ -181,14 +184,6 @@ def get_workspace_details(username: str, workspace_id: int):
     if not user:
         return None, "User not found"
 
-    membership = WorkspaceMember.query.filter_by(
-        workspace_id=workspace_id,
-        user_id=user.id,
-    ).first()
-
-    if not membership:
-        return None, "You are not a member of this workspace"
-
     workspace = Workspace.query.filter_by(
         id=workspace_id,
         status="active",
@@ -196,6 +191,14 @@ def get_workspace_details(username: str, workspace_id: int):
 
     if not workspace:
         return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
 
     settings = WorkspaceSettings.query.filter_by(
         workspace_id=workspace.id
@@ -236,7 +239,6 @@ def get_workspace_details(username: str, workspace_id: int):
         },
     }, None
 
-
 def leave_workspace(username: str, workspace_id: int):
     user = User.query.filter_by(username=username).first()
 
@@ -269,3 +271,659 @@ def leave_workspace(username: str, workspace_id: int):
     except Exception:
         db.session.rollback()
         return None, "Failed to leave workspace"
+
+def invite_user_to_workspace(
+    admin_username: str,
+    workspace_id: int,
+    invited_username: str,
+):
+    admin = User.query.filter_by(
+        username=admin_username
+    ).first()
+
+    if not admin:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    admin_membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=admin.id,
+    ).first()
+
+    if not admin_membership:
+        return None, "You are not a member of this workspace"
+
+    if admin_membership.role != "admin":
+        return None, "Admin privileges required"
+
+    invited_username = invited_username.strip()
+
+    if not invited_username:
+        return None, "Username cannot be empty"
+
+    invited_user = User.query.filter_by(
+        username=invited_username
+    ).first()
+
+    if not invited_user:
+        return None, "Invited user not found"
+
+    if invited_user.id == admin.id:
+        return None, "You cannot invite yourself"
+
+    existing_member = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=invited_user.id,
+    ).first()
+
+    if existing_member:
+        return None, "User is already a member of this workspace"
+
+    existing_invitation = WorkspaceInvitation.query.filter_by(
+        workspace_id=workspace_id,
+        invited_user_id=invited_user.id,
+        status="pending",
+    ).first()
+
+    if existing_invitation:
+        return None, "A pending invitation already exists"
+
+    try:
+        invitation = WorkspaceInvitation(
+            workspace_id=workspace_id,
+            invited_user_id=invited_user.id,
+            invited_by=admin.id,
+            status="pending",
+        )
+
+        db.session.add(invitation)
+        db.session.commit()
+
+        return {
+            "id": invitation.id,
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "invited_user_id": invited_user.id,
+            "invited_username": invited_user.username,
+            "invited_by": admin.username,
+            "status": invitation.status,
+            "created_at": (
+                invitation.created_at.isoformat()
+                if invitation.created_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace invitation"
+
+
+def get_pending_workspace_invitations(username: str):
+    user = User.query.filter_by(
+        username=username
+    ).first()
+
+    if not user:
+        return None, "User not found"
+
+    try:
+        invitations = (
+            WorkspaceInvitation.query
+            .join(
+                Workspace,
+                Workspace.id == WorkspaceInvitation.workspace_id,
+            )
+            .filter(
+                WorkspaceInvitation.invited_user_id == user.id,
+                WorkspaceInvitation.status == "pending",
+                Workspace.status == "active",
+            )
+            .order_by(
+                WorkspaceInvitation.id.desc()
+            )
+            .all()
+        )
+
+        result = []
+
+        for invitation in invitations:
+            workspace = Workspace.query.get(
+                invitation.workspace_id
+            )
+
+            inviter = User.query.get(
+                invitation.invited_by
+            )
+
+            if not workspace or not inviter:
+                continue
+
+            result.append({
+                "id": invitation.id,
+                "workspace_id": workspace.id,
+                "workspace_name": workspace.name,
+                "join_code": workspace.join_code,
+                "invited_by": inviter.username,
+                "status": invitation.status,
+                "created_at": (
+                    invitation.created_at.isoformat()
+                    if invitation.created_at
+                    else None
+                ),
+            })
+
+        return result, None
+
+    except Exception:
+        return None, "Failed to retrieve workspace invitations"
+
+def accept_workspace_invitation(
+    username: str,
+    invitation_id: int,
+):
+    user = User.query.filter_by(
+        username=username
+    ).first()
+
+    if not user:
+        return None, "User not found"
+
+    invitation = WorkspaceInvitation.query.filter_by(
+        id=invitation_id
+    ).first()
+
+    if not invitation:
+        return None, "Invitation not found"
+
+    if invitation.invited_user_id != user.id:
+        return None, "You are not the recipient of this invitation"
+
+    if invitation.status != "pending":
+        return None, "Invitation is no longer pending"
+
+    workspace = Workspace.query.filter_by(
+        id=invitation.workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    existing_member = WorkspaceMember.query.filter_by(
+        workspace_id=workspace.id,
+        user_id=user.id,
+    ).first()
+
+    try:
+        if not existing_member:
+            member = WorkspaceMember(
+                workspace_id=workspace.id,
+                user_id=user.id,
+                role="member",
+            )
+            db.session.add(member)
+
+        invitation.status = "accepted"
+        invitation.responded_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return {
+            "invitation_id": invitation.id,
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "role": (
+                existing_member.role
+                if existing_member
+                else "member"
+            ),
+            "status": invitation.status,
+            "responded_at": (
+                invitation.responded_at.isoformat()
+                if invitation.responded_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to accept workspace invitation"
+
+def decline_workspace_invitation(
+    username: str,
+    invitation_id: int,
+):
+    user = User.query.filter_by(
+        username=username
+    ).first()
+
+    if not user:
+        return None, "User not found"
+
+    invitation = WorkspaceInvitation.query.filter_by(
+        id=invitation_id
+    ).first()
+
+    if not invitation:
+        return None, "Invitation not found"
+
+    if invitation.invited_user_id != user.id:
+        return None, "You are not the recipient of this invitation"
+
+    if invitation.status != "pending":
+        return None, "Invitation is no longer pending"
+
+    try:
+        invitation.status = "declined"
+        invitation.responded_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return {
+            "invitation_id": invitation.id,
+            "workspace_id": invitation.workspace_id,
+            "status": invitation.status,
+            "responded_at": (
+                invitation.responded_at.isoformat()
+                if invitation.responded_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to decline workspace invitation"
+
+
+def promote_workspace_member(
+    admin_username: str,
+    workspace_id: int,
+    member_username: str,
+):
+    admin = User.query.filter_by(
+        username=admin_username
+    ).first()
+
+    if not admin:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    admin_membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=admin.id,
+    ).first()
+
+    if not admin_membership:
+        return None, "You are not a member of this workspace"
+
+    if admin_membership.role != "admin":
+        return None, "Admin privileges required"
+
+    member_username = member_username.strip()
+
+    if not member_username:
+        return None, "Username cannot be empty"
+
+    member_user = User.query.filter_by(
+        username=member_username
+    ).first()
+
+    if not member_user:
+        return None, "Member not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=member_user.id,
+    ).first()
+
+    if not membership:
+        return None, "User is not a member of this workspace"
+
+    if membership.role == "admin":
+        return None, "User is already an admin"
+
+    try:
+        membership.role = "admin"
+
+        db.session.commit()
+
+        return {
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "user_id": member_user.id,
+            "username": member_user.username,
+            "role": membership.role,
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to promote workspace member"
+
+def update_workspace_settings(
+    admin_username: str,
+    workspace_id: int,
+    computation_mode=None,
+    allow_member_posting=None,
+    allow_member_solving=None,
+):
+    admin = User.query.filter_by(
+        username=admin_username
+    ).first()
+
+    if not admin:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=admin.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    if membership.role != "admin":
+        return None, "Admin privileges required"
+
+    settings = WorkspaceSettings.query.filter_by(
+        workspace_id=workspace_id
+    ).first()
+
+    if not settings:
+        return None, "Workspace settings not found"
+
+    if computation_mode is not None:
+        if computation_mode not in {"offline", "online"}:
+            return None, (
+                "ComputationMode must be 'offline' or 'online'"
+            )
+
+        settings.computation_mode = computation_mode
+
+    if allow_member_posting is not None:
+        if not isinstance(allow_member_posting, bool):
+            return None, (
+                "AllowMemberPosting must be a boolean"
+            )
+
+        settings.allow_member_posting = allow_member_posting
+
+    if allow_member_solving is not None:
+        if not isinstance(allow_member_solving, bool):
+            return None, (
+                "AllowMemberSolving must be a boolean"
+            )
+
+        settings.allow_member_solving = allow_member_solving
+
+    try:
+        db.session.commit()
+
+        return {
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "computation_mode": settings.computation_mode,
+            "allow_member_posting": (
+                settings.allow_member_posting
+            ),
+            "allow_member_solving": (
+                settings.allow_member_solving
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to update workspace settings"
+
+def create_workspace_question(
+    username: str,
+    workspace_id: int,
+    question: str,
+    image_path=None,
+    question_type="solver",
+    visibility="public",
+):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    if not isinstance(question, str):
+        return None, "Question must be a string"
+
+    question = question.strip()
+
+    if not question:
+        return None, "Question cannot be empty"
+
+    if len(question) > 10000:
+        return None, "Question is too long"
+
+    if question_type not in {"solver", "assessment", "mcq"}:
+        return None, "Invalid question type"
+
+    if visibility not in {"public", "private"}:
+        return None, "Visibility must be 'public' or 'private'"
+
+    settings = WorkspaceSettings.query.filter_by(
+        workspace_id=workspace_id
+    ).first()
+
+    if not settings:
+        return None, "Workspace settings not found"
+
+    # Public questions:
+    # admins can always post, members require permission.
+    if visibility == "public":
+        if (
+            membership.role != "admin"
+            and not settings.allow_member_posting
+        ):
+            return None, "Members are not allowed to post questions"
+
+    # Private questions:
+    # every workspace member is allowed to create them.
+    # No AllowMemberPosting permission is required.
+
+    workspace_question = WorkspaceQuestion(
+        workspace_id=workspace_id,
+        author_id=user.id,
+        question=question,
+        image_path=image_path,
+        question_type=question_type,
+        visibility=visibility,
+        status="active",
+    )
+
+    try:
+        db.session.add(workspace_question)
+        db.session.commit()
+
+        return {
+            "id": workspace_question.id,
+            "workspace_id": workspace_question.workspace_id,
+            "author_id": workspace_question.author_id,
+            "question": workspace_question.question,
+            "image_path": workspace_question.image_path,
+            "question_type": workspace_question.question_type,
+            "visibility": workspace_question.visibility,
+            "status": workspace_question.status,
+            "created_at": (
+                workspace_question.created_at.isoformat()
+                if workspace_question.created_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace question"
+
+def get_workspace_questions(username: str, workspace_id: int):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    # Admins can see every active question.
+    # Ordinary members can see:
+    #   - all public questions
+    #   - their own private questions
+    if membership.role == "admin":
+        questions = (
+            WorkspaceQuestion.query
+            .filter_by(
+                workspace_id=workspace_id,
+                status="active",
+            )
+            .order_by(WorkspaceQuestion.created_at.desc())
+            .all()
+        )
+    else:
+        questions = (
+            WorkspaceQuestion.query
+            .filter(
+                WorkspaceQuestion.workspace_id == workspace_id,
+                WorkspaceQuestion.status == "active",
+                db.or_(
+                    WorkspaceQuestion.visibility == "public",
+                    db.and_(
+                        WorkspaceQuestion.visibility == "private",
+                        WorkspaceQuestion.author_id == user.id,
+                    ),
+                ),
+            )
+            .order_by(WorkspaceQuestion.created_at.desc())
+            .all()
+        )
+
+    return [
+        {
+            "id": question.id,
+            "workspace_id": question.workspace_id,
+            "author_id": question.author_id,
+            "question": question.question,
+            "image_path": question.image_path,
+            "question_type": question.question_type,
+            "visibility": question.visibility,
+            "status": question.status,
+            "created_at": (
+                question.created_at.isoformat()
+                if question.created_at
+                else None
+            ),
+        }
+        for question in questions
+    ], None
+
+
+def get_workspace_question(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    # Private questions are visible only to their author
+    # and workspace admins.
+    if question.visibility == "private":
+        if membership.role != "admin" and question.author_id != user.id:
+            # Deliberately hide the existence of the question.
+            return None, "Workspace question not found"
+
+    return {
+        "id": question.id,
+        "workspace_id": question.workspace_id,
+        "author_id": question.author_id,
+        "question": question.question,
+        "image_path": question.image_path,
+        "question_type": question.question_type,
+        "visibility": question.visibility,
+        "status": question.status,
+        "created_at": (
+            question.created_at.isoformat()
+            if question.created_at
+            else None
+        ),
+    }, None
+
+

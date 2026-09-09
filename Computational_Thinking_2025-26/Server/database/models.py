@@ -169,7 +169,11 @@ class WorkspaceQuestion(db.Model):
         nullable=False,
         default="solver"
     )
-
+    visibility = db.Column(
+    db.String(20),
+    nullable=False,
+    default="public",
+    )
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -180,4 +184,190 @@ class WorkspaceQuestion(db.Model):
         db.String(20),
         nullable=False,
         default="active"
+    )
+
+class WorkspaceInvitation(db.Model):
+    __tablename__ = "workspace_invitations"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    workspace_id = db.Column(
+        db.Integer,
+        db.ForeignKey("workspaces.id"),
+        nullable=False,
+    )
+
+    invited_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    invited_by = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default="pending",
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        server_default=db.func.now(),
+    )
+
+    responded_at = db.Column(
+        db.DateTime,
+        nullable=True,
+    )
+
+class WorkspaceQuestionSolution(db.Model):
+    __tablename__ = "workspace_question_solutions"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    workspace_question_id = db.Column(
+        db.Integer,
+        db.ForeignKey("workspace_questions.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    engine = db.Column(
+        db.String(80),
+        nullable=False,
+        default="pending",
+    )
+
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default="pending",
+    )
+
+    result_json = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    error_message = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        server_default=db.func.now(),
+    )
+
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        server_default=db.func.now(),
+    )
+
+
+class WorkspaceQuestionAttempt(db.Model):
+    __tablename__ = "workspace_question_attempts"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    workspace_question_id = db.Column(
+        db.Integer,
+        db.ForeignKey("workspace_questions.id"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    mode = db.Column(
+        db.String(20),
+        nullable=False,
+        default="solver",
+    )
+
+    submitted_answer = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    result_json = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    score = db.Column(
+        db.Float,
+        nullable=True,
+    )
+
+    solution_revealed = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+    )
+
+    started_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        server_default=db.func.now(),
+    )
+
+    completed_at = db.Column(
+        db.DateTime,
+        nullable=True,
+    )
+
+
+class WorkspaceQuestionFollowUp(db.Model):
+    __tablename__ = "workspace_question_followups"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    workspace_question_id = db.Column(
+        db.Integer,
+        db.ForeignKey("workspace_questions.id"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    question = db.Column(
+        db.Text,
+        nullable=False,
+    )
+
+    answer = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    engine = db.Column(
+        db.String(80),
+        nullable=True,
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        server_default=db.func.now(),
     )

@@ -2,7 +2,17 @@ import os
 from dotenv import load_dotenv
 from flask import Flask
 from database.db import db
-from database.models import User
+from database.models import (
+    User,
+    Workspace,
+    WorkspaceMember,
+    WorkspaceSettings,
+    WorkspaceQuestion,
+    WorkspaceInvitation,
+    WorkspaceQuestionSolution,
+    WorkspaceQuestionAttempt,
+    WorkspaceQuestionFollowUp,
+)
 from routes.routes import register_routes
 from flask_cors import CORS
 

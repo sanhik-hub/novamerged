@@ -244,10 +244,11 @@ class WolframEngine:
         """
         Evaluate arbitrary Wolfram Language code.
 
-        Example:
-            engine.calculate("Integrate[x^2, x]")
+        Wolfram can return special failure expressions such as $Failed
+        without raising a Python exception. Those must be treated as
+        unsuccessful computations and must never be cached as valid
+        solutions.
         """
-
         if not expression or not expression.strip():
             return WolframResult(
                 success=False,
@@ -257,28 +258,141 @@ class WolframEngine:
         try:
             self._ensure_session()
 
-            # Actual computation
+            # Evaluate exactly once.
             result = self.session.evaluate(
                 wlexpr(expression)
             )
 
-            # API/frontend representation
-            formatted = self._format_result(expression)
+            # -----------------------------------------------------
+            # Wolfram failure detection
+            # -----------------------------------------------------
+            #
+            # Wolfram may return $Failed instead of raising an
+            # exception. wolframclient represents this as a WL
+            # expression/symbol, so inspect its string form.
+            #
+            result_text = str(result).strip()
+
+            if result_text == "$Failed":
+                return WolframResult(
+                    success=False,
+                    result=None,
+                    error=(
+                        "Wolfram Engine could not evaluate the "
+                        "expression."
+                    ),
+                    raw_output=result_text,
+                )
+
+            # Also catch common failure-style symbolic results.
+            if result_text in {
+                "$Aborted",
+                "$Canceled",
+                "$Interrupt",
+            }:
+                return WolframResult(
+                    success=False,
+                    result=None,
+                    error=f"Wolfram Engine evaluation returned {result_text}.",
+                    raw_output=result_text,
+                )
+
+            # -----------------------------------------------------
+            # Format the already-computed result
+            # -----------------------------------------------------
+            #
+            # Do NOT call _format_result(expression) here because
+            # that evaluates the original expression a second time.
+            #
+            # For now, use the evaluated result's string form for
+            # the API-facing text. The raw Wolfram result remains
+            # available internally.
+            #
+            text = result_text
+
+            try:
+                result_type = "expression"
+
+                # Basic semantic classification.
+                if isinstance(result, (int, float, complex)):
+                    result_type = "number"
+                elif isinstance(result, (list, tuple)):
+                    result_type = "list"
+
+                # Try Wolfram-side formatting without re-running the
+                # original computation.
+                formatting_expression = f"""
+                    With[
+                        {{r = ({result_text})}},
+                        <|
+                            "text" -> ToString[r, InputForm],
+                            "latex" -> ToString[TeXForm[r]],
+                            "input_form" -> ToString[r, InputForm],
+                            "head" -> ToString[Head[r], InputForm]
+                        |>
+                    ]
+                """
+
+                formatted = self.session.evaluate(
+                    wlexpr(formatting_expression)
+                )
+
+                if isinstance(formatted, dict):
+                    head = str(formatted.get("head", ""))
+
+                    if head in {
+                        "Integer",
+                        "Rational",
+                        "Real",
+                        "Complex",
+                    }:
+                        result_type = "number"
+                    elif head == "List":
+                        result_type = "list"
+                    elif head == "Rule":
+                        result_type = "rule"
+                    elif head == "Association":
+                        result_type = "object"
+
+                    text = str(formatted.get("text", text))
+                    latex = str(formatted.get("latex", ""))
+                    input_form = str(
+                        formatted.get("input_form", text)
+                    )
+
+                    exact = not any(
+                        marker in input_form
+                        for marker in (".", "`")
+                    )
+                else:
+                    latex = None
+                    input_form = text
+                    exact = None
+
+            except Exception:
+                # Formatting failure must not turn a valid computation
+                # into a failed computation.
+                latex = None
+                input_form = text
+                exact = None
 
             return WolframResult(
                 success=True,
                 result=result,
-                text=formatted["text"],
-                latex=formatted["latex"],
-                input_form=formatted["input_form"],
-                result_type=formatted["result_type"],
-                exact=formatted["exact"],
+                text=text,
+                latex=latex,
+                input_form=input_form,
+                result_type=result_type,
+                exact=exact,
+                raw_output=result_text,
             )
 
         except Exception as exc:
             return WolframResult(
                 success=False,
+                result=None,
                 error=f"Wolfram Engine evaluation failed: {exc}",
+                raw_output=None,
             )
 
     # =========================================================

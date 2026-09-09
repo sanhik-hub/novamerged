@@ -4,6 +4,27 @@ from services.workspace_services import (
     get_user_workspaces,
     get_workspace_details,
     leave_workspace,
+    invite_user_to_workspace,
+    get_pending_workspace_invitations,
+    accept_workspace_invitation,
+    decline_workspace_invitation,
+    promote_workspace_member,
+    update_workspace_settings,
+    create_workspace_question,
+    get_workspace_questions,
+    get_workspace_question,
+
+)
+from services.workspace_computation_service import (
+    WorkspaceComputationService,
+)
+from services.workspace_solution_services import (
+    get_cached_workspace_solution,
+    store_workspace_question_solution,
+    create_workspace_question_attempt,
+    complete_workspace_question_attempt,
+    create_workspace_question_followup,
+    get_workspace_question_attempts,
 )
 from services.auth_services import (
     create_auth_token,
@@ -574,33 +595,32 @@ def register_routes(app):
     # ============================================================
 
     @app.route("/WorkspaceJoin", methods=["POST"])
-    def receive_WorkspaceJoin_data():
-        data = request.get_json(silent=True) or {}
+    def receive_WorkspaceJoin():
+        user, auth_error = get_authenticated_user()
 
-        if not isinstance(data, dict):
-            return {
-                "error": "Invalid JSON payload"
-            }, 400
+        if auth_error:
+            return auth_error
 
-        required_fields = {
-            "Username",
-            "JoinCode",
-        }
+        workspace_data = request.get_json(silent=True) or {}
 
-        missing_fields = required_fields - data.keys()
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"JoinCode"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
 
         if missing_fields:
             return {
                 "error": f"Missing fields: {sorted(missing_fields)}"
             }, 400
 
-        username = data.get("Username")
-        join_code = data.get("JoinCode")
-
-        if not isinstance(username, str):
+        if extra_fields:
             return {
-                "error": "Username must be a string"
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
             }, 400
+
+        join_code = workspace_data.get("JoinCode")
 
         if not isinstance(join_code, str):
             return {
@@ -608,218 +628,1290 @@ def register_routes(app):
             }, 400
 
         workspace, error = join_workspace(
-            username,
+            user.username,
             join_code,
         )
 
         if error == "User not found":
-            return {
-                "error": error
-            }, 404
-
-        if error == "Invalid workspace join code":
-            return {
-                "error": error
-            }, 404
-
-        if error == "User is already a member of this workspace":
-            return {
-                "error": error
-            }, 409
+            return {"error": error}, 404
 
         if error:
-            return {
-                "error": error
-            }, 500
+            return {"error": error}, 400
 
         return {
-            "message": "Joined workspace successfully",
+            "message": "Workspace joined successfully",
             "data": workspace,
         }, 200
-
 
     # ============================================================
     # GET USER WORKSPACES
     # ============================================================
 
     @app.route("/Workspaces", methods=["POST"])
-    def receive_Workspaces_data():
-        data = request.get_json(silent=True) or {}
+    def receive_Workspaces():
+        user, auth_error = get_authenticated_user()
 
-        if not isinstance(data, dict):
+        if auth_error:
+            return auth_error
+
+        workspace_data = request.get_json(silent=True) or {}
+
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        if workspace_data:
             return {
-                "error": "Invalid JSON payload"
+                "error": f"Unexpected fields: {sorted(workspace_data.keys())}"
             }, 400
 
-        if "Username" not in data:
-            return {
-                "error": "Missing fields: ['Username']"
-            }, 400
-
-        username = data.get("Username")
-
-        if not isinstance(username, str):
-            return {
-                "error": "Username must be a string"
-            }, 400
-
-        workspaces, error = get_user_workspaces(username)
+        workspaces, error = get_user_workspaces(
+            user.username
+        )
 
         if error == "User not found":
-            return {
-                "error": error
-            }, 404
+            return {"error": error}, 404
 
         if error:
-            return {
-                "error": error
-            }, 500
+            return {"error": error}, 400
 
         return {
             "message": "Workspaces retrieved successfully",
             "data": workspaces,
         }, 200
 
-
     # ============================================================
     # WORKSPACE DETAILS
     # ============================================================
 
     @app.route("/WorkspaceDetails", methods=["POST"])
-    def receive_WorkspaceDetails_data():
-        data = request.get_json(silent=True) or {}
+    def receive_WorkspaceDetails():
+        user, auth_error = get_authenticated_user()
 
-        if not isinstance(data, dict):
-            return {
-                "error": "Invalid JSON payload"
-            }, 400
+        if auth_error:
+            return auth_error
 
-        required_fields = {
-            "Username",
-            "WorkspaceId",
-        }
+        workspace_data = request.get_json(silent=True) or {}
 
-        missing_fields = required_fields - data.keys()
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"WorkspaceId"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
 
         if missing_fields:
             return {
                 "error": f"Missing fields: {sorted(missing_fields)}"
             }, 400
 
-        username = data.get("Username")
-        workspace_id = data.get("WorkspaceId")
-
-        if not isinstance(username, str):
+        if extra_fields:
             return {
-                "error": "Username must be a string"
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
             }, 400
 
-        if (
-            isinstance(workspace_id, bool)
-            or not isinstance(workspace_id, int)
-            or workspace_id < 1
-        ):
+        workspace_id = workspace_data.get("WorkspaceId")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
             return {
-                "error": "WorkspaceId must be a positive integer"
+                "error": "WorkspaceId must be an integer"
             }, 400
 
         workspace, error = get_workspace_details(
-            username,
+            user.username,
             workspace_id,
         )
 
-        if error in {
-            "User not found",
-            "Workspace not found",
-        }:
-            return {
-                "error": error
-            }, 404
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
 
         if error == "You are not a member of this workspace":
-            return {
-                "error": error
-            }, 403
+            return {"error": error}, 403
 
         if error:
-            return {
-                "error": error
-            }, 500
+            return {"error": error}, 400
 
         return {
             "message": "Workspace details retrieved successfully",
             "data": workspace,
         }, 200
 
-
     # ============================================================
     # LEAVE WORKSPACE
     # ============================================================
-
     @app.route("/WorkspaceLeave", methods=["POST"])
-    def receive_WorkspaceLeave_data():
-        data = request.get_json(silent=True) or {}
+    def receive_WorkspaceLeave():
+        user, auth_error = get_authenticated_user()
 
-        if not isinstance(data, dict):
-            return {
-                "error": "Invalid JSON payload"
-            }, 400
+        if auth_error:
+            return auth_error
 
-        required_fields = {
-            "Username",
-            "WorkspaceId",
-        }
+        workspace_data = request.get_json(silent=True) or {}
 
-        missing_fields = required_fields - data.keys()
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"WorkspaceId"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
 
         if missing_fields:
             return {
                 "error": f"Missing fields: {sorted(missing_fields)}"
             }, 400
 
-        username = data.get("Username")
-        workspace_id = data.get("WorkspaceId")
-
-        if not isinstance(username, str):
+        if extra_fields:
             return {
-                "error": "Username must be a string"
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
             }, 400
 
-        if (
-            isinstance(workspace_id, bool)
-            or not isinstance(workspace_id, int)
-            or workspace_id < 1
-        ):
+        workspace_id = workspace_data.get("WorkspaceId")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
             return {
-                "error": "WorkspaceId must be a positive integer"
+                "error": "WorkspaceId must be an integer"
             }, 400
 
         result, error = leave_workspace(
-            username,
+            user.username,
             workspace_id,
         )
 
         if error == "User not found":
-            return {
-                "error": error
-            }, 404
+            return {"error": error}, 404
 
         if error == "You are not a member of this workspace":
-            return {
-                "error": error
-            }, 403
-
-        if error and "admins cannot leave" in error:
-            return {
-                "error": error
-            }, 403
+            return {"error": error}, 403
 
         if error:
-            return {
-                "error": error
-            }, 500
+            return {"error": error}, 400
 
         return {
-            "message": "Left workspace successfully",
+            "message": "Workspace left successfully",
             "data": result,
         }, 200
+
+    @app.route("/WorkspaceInvite", methods=["POST"])
+    def receive_WorkspaceInvite():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "Username",
+        }
+
+        missing_fields = required_fields - invitation_data.keys()
+        extra_fields = set(invitation_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        workspace_id = invitation_data.get("WorkspaceId")
+        invited_username = invitation_data.get("Username")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {
+                "error": "WorkspaceId must be an integer"
+            }, 400
+
+        if not isinstance(invited_username, str):
+            return {
+                "error": "Username must be a string"
+            }, 400
+
+        invitation, error = invite_user_to_workspace(
+            user.username,
+            workspace_id,
+            invited_username,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Invited user not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Admin privileges required":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitation sent successfully",
+            "data": invitation,
+        }, 201
+
+    @app.route("/WorkspaceInvitations", methods=["POST"])
+    def receive_WorkspaceInvitations():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        if invitation_data:
+            return {
+                "error": f"Unexpected fields: {sorted(invitation_data.keys())}"
+            }, 400
+
+        invitations, error = get_pending_workspace_invitations(
+            user.username
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitations retrieved successfully",
+            "data": invitations,
+        }, 200
+
+    @app.route("/WorkspaceInvitationAccept", methods=["POST"])
+    def receive_WorkspaceInvitationAccept():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"InvitationId"}
+        missing_fields = required_fields - invitation_data.keys()
+        extra_fields = set(invitation_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        invitation_id = invitation_data.get("InvitationId")
+
+        if isinstance(invitation_id, bool) or not isinstance(invitation_id, int):
+            return {
+                "error": "InvitationId must be an integer"
+            }, 400
+
+        result, error = accept_workspace_invitation(
+            user.username,
+            invitation_id,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Invitation not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not the recipient of this invitation":
+            return {"error": error}, 403
+
+        if error == "Invitation is no longer pending":
+            return {"error": error}, 400
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitation accepted successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceInvitationDecline", methods=["POST"])
+    def receive_WorkspaceInvitationDecline():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"InvitationId"}
+        missing_fields = required_fields - invitation_data.keys()
+        extra_fields = set(invitation_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        invitation_id = invitation_data.get("InvitationId")
+
+        if isinstance(invitation_id, bool) or not isinstance(invitation_id, int):
+            return {
+                "error": "InvitationId must be an integer"
+            }, 400
+
+        result, error = decline_workspace_invitation(
+            user.username,
+            invitation_id,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Invitation not found":
+            return {"error": error}, 404
+
+        if error == "You are not the recipient of this invitation":
+            return {"error": error}, 403
+
+        if error == "Invitation is no longer pending":
+            return {"error": error}, 400
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitation declined successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspacePromote", methods=["POST"])
+    def receive_WorkspacePromote():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        promotion_data = request.get_json(silent=True) or {}
+
+        if not isinstance(promotion_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "Username",
+        }
+
+        missing_fields = required_fields - promotion_data.keys()
+        extra_fields = set(promotion_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        workspace_id = promotion_data.get("WorkspaceId")
+        member_username = promotion_data.get("Username")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {
+                "error": "WorkspaceId must be an integer"
+            }, 400
+
+        if not isinstance(member_username, str):
+            return {
+                "error": "Username must be a string"
+            }, 400
+
+        result, error = promote_workspace_member(
+            user.username,
+            workspace_id,
+            member_username,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Member not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Admin privileges required":
+            return {"error": error}, 403
+
+        if error == "User is not a member of this workspace":
+            return {"error": error}, 400
+
+        if error == "User is already an admin":
+            return {"error": error}, 400
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace member promoted successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceSettingsUpdate", methods=["POST"])
+    def workspace_settings_update():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "ComputationMode",
+            "AllowMemberPosting",
+            "AllowMemberSolving",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        if "WorkspaceId" not in data:
+            return {"error": "WorkspaceId is required"}, 400
+
+        workspace_id = data["WorkspaceId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        setting_fields = {
+            "ComputationMode",
+            "AllowMemberPosting",
+            "AllowMemberSolving",
+        }
+
+        if not any(field in data for field in setting_fields):
+            return {
+                "error": (
+                    "At least one setting field is required: "
+                    "ComputationMode, AllowMemberPosting, "
+                    "AllowMemberSolving"
+                )
+            }, 400
+
+        if "ComputationMode" in data:
+            if not isinstance(data["ComputationMode"], str):
+                return {"error": "ComputationMode must be a string"}, 400
+
+            if data["ComputationMode"] not in {"offline", "online"}:
+                return {
+                    "error": "ComputationMode must be 'offline' or 'online'"
+                }, 400
+
+        if "AllowMemberPosting" in data:
+            if not isinstance(data["AllowMemberPosting"], bool):
+                return {
+                    "error": "AllowMemberPosting must be a boolean"
+                }, 400
+
+        if "AllowMemberSolving" in data:
+            if not isinstance(data["AllowMemberSolving"], bool):
+                return {
+                    "error": "AllowMemberSolving must be a boolean"
+                }, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = update_workspace_settings(
+            admin_username=user.username,
+            workspace_id=workspace_id,
+            computation_mode=data.get("ComputationMode"),
+            allow_member_posting=data.get("AllowMemberPosting"),
+            allow_member_solving=data.get("AllowMemberSolving"),
+        )
+
+        if error:
+            if error in {
+                "Workspace not found",
+                "Workspace settings not found",
+            }:
+                return {"error": error}, 404
+
+            if error in {
+                "You are not a member of this workspace",
+                "Admin privileges required",
+            }:
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace settings updated successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceQuestionCreate", methods=["POST"])
+    def workspace_question_create():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "Question",
+            "ImagePath",
+            "QuestionType",
+            "Visibility",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        required_fields = {"WorkspaceId", "Question"}
+
+        missing = sorted(required_fields - set(data.keys()))
+        if missing:
+            return {"error": f"Missing required fields: {missing}"}, 400
+
+        workspace_id = data["WorkspaceId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        question = data["Question"]
+
+        if not isinstance(question, str):
+            return {"error": "Question must be a string"}, 400
+
+        image_path = data.get("ImagePath")
+
+        if image_path is not None and not isinstance(image_path, str):
+            return {"error": "ImagePath must be a string"}, 400
+
+        question_type = data.get("QuestionType", "solver")
+
+        if not isinstance(question_type, str):
+            return {"error": "QuestionType must be a string"}, 400
+
+        if question_type not in {"solver", "assessment", "mcq"}:
+            return {
+                "error": "QuestionType must be 'solver', 'assessment', or 'mcq'"
+            }, 400
+
+        visibility = data.get("Visibility", "public")
+
+        if not isinstance(visibility, str):
+            return {"error": "Visibility must be a string"}, 400
+
+        if visibility not in {"public", "private"}:
+            return {
+                "error": "Visibility must be 'public' or 'private'"
+            }, 400
+        
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = create_workspace_question(
+            username=user.username,
+            workspace_id=workspace_id,
+            question=question,
+            image_path=image_path,
+            question_type=question_type,
+            visibility=visibility,
+        )
+
+        if error:
+            if error in {
+                "Workspace not found",
+                "Workspace settings not found",
+            }:
+                return {"error": error}, 404
+
+            if error in {
+                "You are not a member of this workspace",
+                "Members are not allowed to post questions",
+            }:
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace question created successfully",
+            "data": result,
+        }, 201
+
+    @app.route("/WorkspaceQuestions", methods=["POST"])
+    def workspace_questions():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {"WorkspaceId"}
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        if "WorkspaceId" not in data:
+            return {"error": "WorkspaceId is required"}, 400
+
+        workspace_id = data["WorkspaceId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = get_workspace_questions(
+            username=user.username,
+            workspace_id=workspace_id,
+        )
+
+        if error:
+            if error == "Workspace not found":
+                return {"error": error}, 404
+
+            if error == "You are not a member of this workspace":
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return {
+            "data": result,
+            "count": len(result),
+        }, 200
+
+    @app.route("/WorkspaceQuestionDetails", methods=["POST"])
+    def workspace_question_details():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        missing = sorted(required_fields - set(data.keys()))
+        if missing:
+            return {"error": f"Missing required fields: {missing}"}, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if isinstance(question_id, bool) or not isinstance(question_id, int):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = get_workspace_question(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+        )
+
+        if error in {
+            "Workspace not found",
+            "Workspace question not found",
+        }:
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceQuestionSolution", methods=["POST"])
+    def workspace_question_solution():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {"WorkspaceId", "QuestionId"}
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {"WorkspaceId", "QuestionId"}
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = get_cached_workspace_solution(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        if result is None:
+            return {
+                "cached": False,
+                "data": None,
+            }, 200
+
+        return {
+            "cached": True,
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceQuestionSolutionStore", methods=["POST"])
+    def workspace_question_solution_store():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Engine",
+            "Result",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Engine",
+            "Result",
+        }
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+        engine = data["Engine"]
+        result = data["Result"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        if not isinstance(engine, str) or not engine.strip():
+            return {"error": "Engine must be a non-empty string"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result_data, error = store_workspace_question_solution(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+            engine=engine.strip(),
+            result=result,
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "cached": True,
+            "data": result_data,
+        }, 200
+
+    @app.route("/WorkspaceQuestionAttemptCreate", methods=["POST"])
+    def workspace_question_attempt_create():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Mode",
+            "SubmittedAnswer",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        mode = data.get("Mode", "solver")
+        submitted_answer = data.get("SubmittedAnswer")
+
+        if not isinstance(mode, str):
+            return {"error": "Mode must be a string"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = create_workspace_question_attempt(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+            mode=mode,
+            submitted_answer=submitted_answer,
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Members are not allowed to solve questions":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {"data": result}, 201
+
+    @app.route("/WorkspaceQuestionAttemptComplete", methods=["POST"])
+    def workspace_question_attempt_complete():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "AttemptId",
+            "Result",
+            "Score",
+            "SolutionRevealed",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "AttemptId",
+        }
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        attempt_id = data["AttemptId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(attempt_id, bool)
+            or not isinstance(attempt_id, int)
+        ):
+            return {"error": "AttemptId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = complete_workspace_question_attempt(
+            username=user.username,
+            workspace_id=workspace_id,
+            attempt_id=attempt_id,
+            result=data.get("Result"),
+            score=data.get("Score"),
+            solution_revealed=data.get(
+                "SolutionRevealed",
+                False,
+            ),
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error == "Workspace question attempt not found":
+            return {"error": error}, 404
+
+        if error == "You cannot modify this attempt":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {"data": result}, 200
+
+    @app.route("/WorkspaceQuestionFollowUp", methods=["POST"])
+    def workspace_question_followup():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Question",
+            "Answer",
+            "Engine",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Question",
+        }
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = create_workspace_question_followup(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+            followup_question=data["Question"],
+            answer=data.get("Answer"),
+            engine=data.get("Engine"),
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {"data": result}, 201
+
+    @app.route("/WorkspaceQuestionAttempts", methods=["POST"])
+    def workspace_question_attempts():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        if "WorkspaceId" not in data or "QuestionId" not in data:
+            return {
+                "error": "WorkspaceId and QuestionId are required"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = get_workspace_question_attempts(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "data": result,
+            "count": len(result),
+        }, 200
+
+    @app.route("/WorkspaceQuestionCompute", methods=["POST"])
+    def workspace_question_compute():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        data = request.get_json(silent=True) or {}
+
+        workspace_id = data.get("workspace_id")
+        question_id = data.get("question_id")
+        operation = data.get("operation", "compute")
+        provider = data.get("provider", "wolfram")
+
+        if not isinstance(workspace_id, int):
+            return {"error": "workspace_id must be an integer"}, 400
+
+        if not isinstance(question_id, int):
+            return {"error": "question_id must be an integer"}, 400
+
+        if not isinstance(operation, str) or not operation.strip():
+            return {"error": "operation must be a string"}, 400
+
+        if not isinstance(provider, str) or not provider.strip():
+            return {"error": "provider must be a string"}, 400
+
+        service = WorkspaceComputationService()
+
+        result, error = service.compute_question(
+            user_id=user.id,
+            workspace_id=workspace_id,
+            question_id=question_id,
+            operation=operation.strip(),
+            provider=provider.strip(),
+        )
+
+        if error:
+            if error == "Workspace question not found":
+                return {"error": error}, 404
+
+            if error in {
+                "Workspace not found",
+                "You are not a member of this workspace",
+            }:
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return result, 200

@@ -14,18 +14,18 @@ class WolframProvider(ComputationProvider):
     def calculate(self, query: str) -> dict[str, Any]:
         result = self.engine.calculate(query)
 
-        if result.success:
+        if not result.success:
             return {
-                "success": True,
-                "result": result.result,
-                "error": None,
+                "success": False,
+                "result": None,
+                "error": result.error,
                 "engine": self.name,
             }
 
         return {
-            "success": False,
-            "result": None,
-            "error": result.error,
+            "success": True,
+            "result": result.result,
+            "error": None,
             "engine": self.name,
         }
 
