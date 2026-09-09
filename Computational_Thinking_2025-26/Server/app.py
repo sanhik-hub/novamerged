@@ -35,7 +35,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 CORS(
     app,
-    resources={r"\*": {"origins": "*"}},
+    resources={r"/*": {"origins": "*"}},
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )

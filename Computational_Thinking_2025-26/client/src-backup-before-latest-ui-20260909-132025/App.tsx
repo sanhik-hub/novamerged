@@ -1,57 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  login,
-  postDoubtQuestion,
-  postGraphicalQuestion,
-  postQuestion,
-  postScore,
-  signup,
-  getUserHistory,
-  getHistoryDetail,
-  createWorkspace,
-  joinWorkspace,
-  getWorkspaces,
-  getWorkspaceDetails,
-  leaveWorkspace,
-  inviteToWorkspace,
-  getWorkspaceInvitations,
-  acceptWorkspaceInvitation,
-  declineWorkspaceInvitation,
-  promoteWorkspaceMember,
-  updateWorkspaceSettings,
-  createWorkspaceQuestion,
-  getWorkspaceQuestions,
-  getWorkspaceQuestionDetails,
-  getWorkspaceQuestionSolution,
-  computeWorkspaceQuestion,
-  createWorkspaceAttempt,
-  getWorkspaceQuestionAttempts,
-  postWorkspaceQuestionFollowUp,
-} from "./services/api";
+import { login, postDoubtQuestion, postGraphicalQuestion, postQuestion, postScore, signup, getUserHistory, getHistoryDetail } from "./services/api";
 import { uploadQuestionImage } from "./services/supabase";
-import type {
-  Coordinate,
-  LearnAgainResponse,
-  Question,
-  QuestionResponse,
-  User,
-  HistoryEntry,
-  HistoryDetail,
-  Workspace,
-  WorkspaceMember,
-  WorkspaceSettings,
-  WorkspaceQuestion,
-  WorkspaceSolution,
-  WorkspaceAttempt,
-  WorkspaceInvitation,
-} from "./types";
+import type { Coordinate, LearnAgainResponse, Question, QuestionResponse, User, HistoryEntry, HistoryDetail } from "./types";
 import MathText from "./components/MathText";
 import "./App.css";
 
 type Page = "landing" | "login" | "signup" | "app";
-type Stage = "home" | "loading" | "quiz" | "result" | "learnAgain" | "original" | "evaluation" | "history_view" | "workspace";
-type Mode = "standard" | "graphical";
+type Stage = "home" | "loading" | "quiz" | "result" | "learnAgain" | "original" | "evaluation" | "history_view";
 
 type StoredSession = {
   id: number | string;
@@ -69,44 +25,6 @@ const quotes = [
   "Small steps lead to big discoveries.",
   "Curiosity is the beginning of understanding.",
 ];
-
-// Floating math symbols for decorative background
-const MATH_SYMBOLS = [
-  { char: "∑", size: 110, left: 5,  delay: 0,    duration: 18 },
-  { char: "∫", size: 130, left: 15, delay: 3,    duration: 22 },
-  { char: "π",  size: 95,  left: 28, delay: 6,    duration: 16 },
-  { char: "√",  size: 105, left: 42, delay: 1.5,  duration: 20 },
-  { char: "∞",  size: 90,  left: 58, delay: 9,    duration: 25 },
-  { char: "Δ",  size: 100, left: 72, delay: 4,    duration: 19 },
-  { char: "θ",  size: 85,  left: 85, delay: 7,    duration: 21 },
-  { char: "λ",  size: 115, left: 93, delay: 2,    duration: 17 },
-  { char: "∂",  size: 92,  left: 35, delay: 11,   duration: 23 },
-  { char: "≠",  size: 88,  left: 65, delay: 5,    duration: 15 },
-  { char: "∇",  size: 108, left: 50, delay: 13,   duration: 24 },
-  { char: "∈",  size: 82,  left: 78, delay: 8,    duration: 20 },
-];
-
-function MathBackground() {
-  return (
-    <div className="math-bg" aria-hidden="true">
-      {MATH_SYMBOLS.map((sym, i) => (
-        <span
-          key={i}
-          className="math-symbol"
-          style={{
-            left: `${sym.left}%`,
-            bottom: "-80px",
-            fontSize: `${sym.size}px`,
-            animationDuration: `${sym.duration}s`,
-            animationDelay: `${sym.delay}s`,
-          }}
-        >
-          {sym.char}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function readStoredSession(): User | null {
   try {
@@ -142,7 +60,6 @@ function isQuestion(value: unknown): value is Question {
   const options = value.options;
   const hint = value.hint;
   const correctOption = value.correct_option;
-  const solution = "solution" in value ? value.solution : undefined;
   const coordinates = "coordinates" in value ? value.coordinates : undefined;
 
   return (
@@ -156,7 +73,6 @@ function isQuestion(value: unknown): value is Question {
     Number.isInteger(correctOption) &&
     correctOption >= 1 &&
     correctOption <= 4 &&
-    (solution === undefined || typeof solution === "string") &&
     (coordinates === undefined || (
       Array.isArray(coordinates) &&
       coordinates.length <= 4 &&
@@ -252,7 +168,6 @@ function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => v
       animate={{ opacity: 1 }}
       transition={{ duration: 0.65 }}
     >
-      <MathBackground />
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
       <motion.div
@@ -261,47 +176,12 @@ function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => v
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 90, damping: 15 }}
       >
-        <motion.div
-          className="logo"
-          initial={{ y: -18, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.15 }}
-        >
-          <span className="logo-icon">∑</span>
-          Stepwise Prism AI
-        </motion.div>
-
-        <motion.p
-          className="landing-formula"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          f(x) = ∫₀ˣ g(t) dt &nbsp;·&nbsp; lim(n→∞) (1 + 1/n)ⁿ = e &nbsp;·&nbsp; ∇²φ = ρ/ε₀
-        </motion.p>
-
-        <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          Learn by <span>understanding.</span>
-        </motion.h1>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
-          Ask any question, practice the concept through AI-generated scaffolding, and discover whether you truly understood it.
-        </motion.p>
+        <motion.div className="logo" initial={{ y: -18 }} animate={{ y: 0 }} transition={{ delay: 0.15 }}>nova ai</motion.div>
+        <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>Learn by understanding.</motion.h1>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>Ask a question, practice the concept, and discover whether you really understood it.</motion.p>
         <motion.div className="landing-actions" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
           <motion.button whileHover={{ scale: 1.045, y: -3 }} whileTap={{ scale: 0.97 }} className="primary" onClick={onSignup}>Get started</motion.button>
           <motion.button whileHover={{ scale: 1.045, y: -3 }} whileTap={{ scale: 0.97 }} className="secondary" onClick={onLogin}>Log in</motion.button>
-        </motion.div>
-
-        <motion.div
-          className="landing-pills"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.65 }}
-        >
-          <span className="landing-pill"><span>∑</span>Scaffolded MCQs</span>
-          <span className="landing-pill"><span>∫</span>Step-by-step hints</span>
-          <span className="landing-pill"><span>π</span>Graph mode</span>
-          <span className="landing-pill"><span>Δ</span>Learn Again</span>
-          <span className="landing-pill"><span>√</span>AI-powered feedback</span>
         </motion.div>
       </motion.div>
     </motion.main>
@@ -322,7 +202,6 @@ function Auth({
   const isLogin = mode === "login";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [standard, setStandard] = useState<number | "">("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -336,18 +215,13 @@ function Auth({
       return;
     }
 
-    if (!isLogin && (standard === "" || standard < 6 || standard > 12)) {
-      setError("Please select your class (6 – 12).");
-      return;
-    }
-
     setLoading(true);
     try {
       const response = isLogin
         ? await login(cleanUsername, password)
-        : await signup(cleanUsername, password, standard as number);
+        : await signup(cleanUsername, password);
       if (!response.data || typeof response.data.username !== "string") {
-        throw new Error("Stepwise Prism AI returned an invalid account response.");
+        throw new Error("Nova AI returned an invalid account response.");
       }
       onAuthenticated(response.data);
     } catch (err) {
@@ -359,13 +233,9 @@ function Auth({
 
   return (
     <motion.main className="auth-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
-      <MathBackground />
       <motion.form className="auth-card" onSubmit={submit} initial={{ opacity: 0, y: 35, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 100, damping: 16 }}>
         <motion.button type="button" className="back" onClick={onBack} whileHover={{ x: -4 }} whileTap={{ scale: 0.96 }}>← Back</motion.button>
-        <motion.div className="logo" initial={{ scale: 0.7, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 160 }}>
-          <span className="logo-icon">∑</span>
-          Stepwise Prism AI
-        </motion.div>
+        <motion.div className="logo" initial={{ scale: 0.7, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 160 }}>nova ai</motion.div>
         <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>{isLogin ? "Welcome back" : "Create your account"}</motion.h1>
         <p className="muted">{isLogin ? "Log in to continue learning." : "Start your learning journey."}</p>
 
@@ -392,23 +262,6 @@ function Auth({
           />
         </label>
 
-        {!isLogin && (
-          <label htmlFor="standard">Class / Standard
-            <select
-              id="standard"
-              value={standard}
-              onChange={(event) => setStandard(event.target.value === "" ? "" : Number(event.target.value))}
-              disabled={loading}
-              aria-required="true"
-            >
-              <option value="">Select your class</option>
-              {[6, 7, 8, 9, 10, 11, 12].map((cls) => (
-                <option key={cls} value={cls}>Class {cls}</option>
-              ))}
-            </select>
-          </label>
-        )}
-
         <AnimatePresence mode="wait">
           {error && <motion.div className="error" role="alert" initial={{ opacity: 0, height: 0, y: -8 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -8 }}> {error}</motion.div>}
         </AnimatePresence>
@@ -430,7 +283,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [stage, setStage] = useState<Stage>("home");
   const [quote, setQuote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
   const [questionText, setQuestionText] = useState("");
-  const [mode, setMode] = useState<Mode>("standard");
+  const [mode, setMode] = useState<"standard" | "graphical">("standard");
   const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
   const [image, setImage] = useState<File | null>(null);
   const [imagePath, setImagePath] = useState("");
@@ -519,9 +372,6 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
     window.location.reload();
   }
 
-  function openWorkspace() {
-    setStage("workspace");
-  }
   async function viewHistoryItem(historyId: number) {
     try {
       setStage("loading");
@@ -593,10 +443,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
     setStage("loading");
 
     try {
-      setLoadingMessage(
-        mode === "graphical" ? "Reading your graph..." :
-        "Understanding your question..."
-      );
+      setLoadingMessage(mode === "graphical" ? "Reading your graph..." : "Understanding your question...");
       await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
       setLoadingMessage("Generating a personalized practice session...");
 
@@ -623,7 +470,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
       setShowHint(false);
       setStage("quiz");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to connect to Stepwise Prism AI. Please try again.");
+      setError(err instanceof Error ? err.message : "Unable to connect to Nova AI. Please try again.");
       setStage("home");
     } finally {
       setImageUploading(false);
@@ -772,7 +619,6 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
     <div className={`app-shell ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
       <motion.div className="ambient ambient-app-one" animate={{ x: [0, 35, 0], y: [0, -20, 0] }} transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }} />
       <motion.div className="ambient ambient-app-two" animate={{ x: [0, -28, 0], y: [0, 25, 0] }} transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }} />
-      <MathBackground />
       <button
         type="button"
         className={`sidebar-toggle ${sidebarOpen ? "is-open" : ""}`}
@@ -795,14 +641,8 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
       )}
 <motion.aside className="sidebar" aria-hidden={!sidebarOpen} initial={false} animate={{ opacity: sidebarOpen ? 1 : 0.85 }} transition={{ type: "spring", stiffness: 240, damping: 26 }}>
       
-        <div className="brand">
-          <span className="brand-icon">∑</span>
-          <span className="brand-name"><span>Stepwise</span><span>Prism AI</span></span>
-        </div>
-                <button type="button" className="workspace-button" onClick={openWorkspace}>
-          Workspaces
-        </button>
-<button className="new-chat" onClick={newChat}>＋ New Chat</button>
+        <div className="brand">nova ai</div>
+        <button className="new-chat" onClick={newChat}>＋ New Chat</button>
 
         <div className="mode-switcher" aria-label="Question mode">
           <button
@@ -811,7 +651,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
             aria-pressed={mode === "standard"}
             onClick={() => { setMode("standard"); setCoordinates([]); }}
           >
-            Standard
+            Standard mode
           </button>
           <button
             type="button"
@@ -819,7 +659,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
             aria-pressed={mode === "graphical"}
             onClick={() => setMode("graphical")}
           >
-            Graphical
+            Graphical mode
           </button>
         </div>
         
@@ -988,7 +828,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
           <motion.div key="evaluation" className="result-card final-result" initial={{ opacity: 0, scale: 0.82, y: 35 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ type: "spring", stiffness: 120, damping: 16 }}>
             {finalAnswer === originalQuestion.correct_option ? (
               <>
-                <div className="result-icon correct-icon">✓</div>
+                <div className="result-icon">✓</div>
                 <h1>Correct! 🎉</h1>
                 <p>
                   Correct answer:{" "}
@@ -998,7 +838,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
               </>
             ) : (
               <>
-                <div className="result-icon incorrect-icon">×</div>
+                <div className="result-icon">×</div>
                 <h1>Not quite.</h1>
                 <p>
                   Correct answer:{" "}
@@ -1006,12 +846,6 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
                 </p>
                 <p>Review the concept and try again.</p>
               </>
-            )}
-            {originalQuestion.solution && (
-              <div className="solution-block">
-                <div className="solution-label">Solution</div>
-                <p>{originalQuestion.solution}</p>
-              </div>
             )}
             <button className="primary" onClick={newChat}>Start New Chat</button>
           </motion.div>
@@ -1040,1051 +874,8 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
             <button className="primary result-next" onClick={newChat}>Back to Home</button>
           </motion.div>
         )}
-                {stage === "workspace" && (
-          <WorkspacePanel
-            user={user}
-            onBack={() => setStage("home")}
-          />
-        )}
-</AnimatePresence>
+        </AnimatePresence>
       </main>
-    </div>
-  );
-}
-
-function WorkspacePanel({
-  user,
-  onBack,
-}: {
-  user: User;
-  onBack: () => void;
-}) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(null);
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
-  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
-  const [questions, setQuestions] = useState<WorkspaceQuestion[]>([]);
-  const [selectedQuestion, setSelectedQuestion] = useState<WorkspaceQuestion | null>(null);
-  const [solution, setSolution] = useState<WorkspaceSolution | null>(null);
-  const [attempts, setAttempts] = useState<WorkspaceAttempt[]>([]);
-  const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
-
-  const [workspaceName, setWorkspaceName] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [inviteUsername, setInviteUsername] = useState("");
-  const [questionText, setQuestionText] = useState("");
-  const [questionType, setQuestionType] = useState("solver");
-  const [visibility, setVisibility] = useState("public");
-  const [followUp, setFollowUp] = useState("");
-  const [computationProvider, setComputationProvider] = useState("wolfram");
-
-  const [activeTab, setActiveTab] = useState<"dashboard" | "questions" | "members" | "invitations" | "settings">("dashboard");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-
-  async function loadWorkspaces() {
-    setBusy(true);
-    setError("");
-
-    try {
-      const response = await getWorkspaces();
-      setWorkspaces(Array.isArray(response.data) ? response.data : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load workspaces.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function loadWorkspace(workspaceId: number) {
-    setBusy(true);
-    setError("");
-
-    try {
-      const response = await getWorkspaceDetails(workspaceId);
-      const workspace = response.data as Workspace;
-      setSelectedWorkspace(workspace);
-
-      const [questionResponse, invitationResponse] = await Promise.all([
-        getWorkspaceQuestions(workspaceId),
-        getWorkspaceInvitations(),
-      ]);
-
-      setQuestions(Array.isArray(questionResponse.data) ? questionResponse.data : []);
-      setInvitations(Array.isArray(invitationResponse.data) ? invitationResponse.data : []);
-
-      const workspaceWithDetails = workspace as Workspace & {
-        members?: WorkspaceMember[];
-        settings?: WorkspaceSettings;
-      };
-
-      setMembers(workspaceWithDetails.members ?? []);
-      setSettings(workspaceWithDetails.settings ?? null);
-      setSelectedQuestion(null);
-      setSolution(null);
-      setAttempts([]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load workspace.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function createNewWorkspace() {
-    const name = workspaceName.trim();
-    if (!name) return;
-
-    setBusy(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await createWorkspace(name);
-      const workspace = response.data as Workspace;
-
-      setWorkspaceName("");
-      setMessage("Workspace created successfully.");
-      await loadWorkspaces();
-
-      if (workspace?.id != null) {
-        await loadWorkspace(Number(workspace.id));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create workspace.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function joinExistingWorkspace() {
-    const code = joinCode.trim();
-    if (!code) return;
-
-    setBusy(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await joinWorkspace(code);
-      const workspace = response.data as Workspace;
-
-      setJoinCode("");
-      setMessage("Joined workspace successfully.");
-      await loadWorkspaces();
-
-      if (workspace?.id != null) {
-        await loadWorkspace(Number(workspace.id));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to join workspace.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function refreshQuestions() {
-    if (!selectedWorkspace?.id) return;
-
-    try {
-      const response = await getWorkspaceQuestions(Number(selectedWorkspace.id));
-      setQuestions(Array.isArray(response.data) ? response.data : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load questions.");
-    }
-  }
-
-  async function createQuestion() {
-    if (!selectedWorkspace?.id || !questionText.trim()) return;
-
-    setBusy(true);
-    setError("");
-    setMessage("");
-
-    try {
-      await createWorkspaceQuestion({
-        WorkspaceId: Number(selectedWorkspace.id),
-        Question: questionText.trim(),
-        QuestionType: questionType,
-        Visibility: visibility,
-      });
-
-      setQuestionText("");
-      setMessage("Question posted successfully.");
-      await refreshQuestions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create question.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function openQuestion(questionId: number) {
-    if (!selectedWorkspace?.id) return;
-
-    setBusy(true);
-    setError("");
-
-    try {
-      const response = await getWorkspaceQuestionDetails(
-        Number(selectedWorkspace.id),
-        questionId,
-      );
-
-      setSelectedQuestion(response.data as WorkspaceQuestion);
-
-      const solutionResponse = await getWorkspaceQuestionSolution(
-        Number(selectedWorkspace.id),
-        questionId,
-      );
-
-      if (solutionResponse.cached) {
-        setSolution(solutionResponse.data as WorkspaceSolution);
-      } else {
-        setSolution(null);
-      }
-
-      try {
-        const attemptResponse = await getWorkspaceQuestionAttempts(
-          Number(selectedWorkspace.id),
-          questionId,
-        );
-        setAttempts(
-          Array.isArray(attemptResponse.data)
-            ? attemptResponse.data
-            : [],
-        );
-      } catch {
-        setAttempts([]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to open question.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function computeQuestion() {
-    if (!selectedWorkspace?.id || !selectedQuestion?.id) return;
-
-    setBusy(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await computeWorkspaceQuestion({
-        workspace_id: Number(selectedWorkspace.id),
-        question_id: Number(selectedQuestion.id),
-        operation: "compute",
-        provider: computationProvider,
-      });
-
-      const result = response as WorkspaceSolution;
-      setSolution(result);
-      setMessage("Computation completed.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Computation failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function createAttempt() {
-    if (!selectedWorkspace?.id || !selectedQuestion?.id) return;
-
-    setBusy(true);
-
-    try {
-      await createWorkspaceAttempt(Number(selectedWorkspace.id), Number(selectedQuestion.id), "solver", "");
-
-      const response = await getWorkspaceQuestionAttempts(
-        Number(selectedWorkspace.id),
-        Number(selectedQuestion.id),
-      );
-
-      setAttempts(Array.isArray(response.data) ? response.data : []);
-      setMessage("Attempt started.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start attempt.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function sendFollowUp() {
-    if (!selectedWorkspace?.id || !selectedQuestion?.id || !followUp.trim()) {
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-
-    try {
-      await postWorkspaceQuestionFollowUp(
-        Number(selectedWorkspace.id),
-        Number(selectedQuestion.id),
-        followUp.trim(),
-      );
-
-      setFollowUp("");
-      setMessage("Follow-up question submitted.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to submit follow-up.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function sendInvitation() {
-    if (!selectedWorkspace?.id || !inviteUsername.trim()) return;
-
-    setBusy(true);
-    setError("");
-
-    try {
-      await inviteToWorkspace(
-        Number(selectedWorkspace.id),
-        inviteUsername.trim(),
-      );
-
-      setInviteUsername("");
-      setMessage("Invitation sent.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send invitation.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleAcceptInvitation(id: number) {
-    setBusy(true);
-
-    try {
-      await acceptWorkspaceInvitation(id);
-      const response = await getWorkspaceInvitations();
-      setInvitations(Array.isArray(response.data) ? response.data : []);
-      await loadWorkspaces();
-      setMessage("Invitation accepted.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to accept invitation.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleDeclineInvitation(id: number) {
-    setBusy(true);
-
-    try {
-      await declineWorkspaceInvitation(id);
-      const response = await getWorkspaceInvitations();
-      setInvitations(Array.isArray(response.data) ? response.data : []);
-      setMessage("Invitation declined.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to decline invitation.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function leaveCurrentWorkspace() {
-    if (!selectedWorkspace?.id) return;
-
-    setBusy(true);
-
-    try {
-      await leaveWorkspace(Number(selectedWorkspace.id));
-      setSelectedWorkspace(null);
-      setQuestions([]);
-      setMembers([]);
-      setSettings(null);
-      setSelectedQuestion(null);
-      setSolution(null);
-      await loadWorkspaces();
-      setMessage("You left the workspace.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to leave workspace.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadWorkspaces();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedWorkspace?.id) return;
-
-    const workspace = selectedWorkspace as Workspace & {
-      members?: WorkspaceMember[];
-      settings?: WorkspaceSettings;
-    };
-
-    if (workspace.members) {
-      setMembers(workspace.members);
-    }
-
-    if (workspace.settings) {
-      setSettings(workspace.settings);
-    }
-  }, [selectedWorkspace]);
-
-  const isAdmin =
-    selectedWorkspace?.role === "owner" ||
-    selectedWorkspace?.role === "admin";
-
-  return (
-    <motion.div
-      className="workspace-page"
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      <div className="workspace-header">
-        <div>
-          <span className="eyebrow">Collaboration</span>
-          <h1>Workspaces</h1>
-          <p>
-            Solve, learn, assign and analyse computational problems together.
-          </p>
-        </div>
-
-        <button type="button" className="secondary" onClick={onBack}>
-          Back to Solver
-        </button>
-      </div>
-
-      {error && <div className="error review-error">{error}</div>}
-      {message && <div className="workspace-message">{message}</div>}
-
-      <div className="workspace-grid">
-        <section className="workspace-card workspace-list-card">
-          <div className="workspace-card-header">
-            <div>
-              <h2>My Workspaces</h2>
-              <span>{workspaces.length} workspace{workspaces.length === 1 ? "" : "s"}</span>
-            </div>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void loadWorkspaces()}
-              disabled={busy}
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div className="workspace-create-row">
-            <input
-              value={workspaceName}
-              onChange={(event) => setWorkspaceName(event.target.value)}
-              placeholder="New workspace name"
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void createNewWorkspace();
-              }}
-            />
-            <button
-              type="button"
-              className="primary"
-              onClick={() => void createNewWorkspace()}
-              disabled={busy || !workspaceName.trim()}
-            >
-              Create
-            </button>
-          </div>
-
-          <div className="workspace-create-row">
-            <input
-              value={joinCode}
-              onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="Join code"
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void joinExistingWorkspace();
-              }}
-            />
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void joinExistingWorkspace()}
-              disabled={busy || !joinCode.trim()}
-            >
-              Join
-            </button>
-          </div>
-
-          <div className="workspace-list">
-            {workspaces.length === 0 ? (
-              <div className="workspace-empty">
-                No workspaces yet. Create one or join an existing workspace.
-              </div>
-            ) : (
-              workspaces.map((workspace) => (
-                <button
-                  type="button"
-                  key={workspace.id}
-                  className={`workspace-list-item ${
-                    selectedWorkspace?.id === workspace.id ? "active" : ""
-                  }`}
-                  onClick={() => void loadWorkspace(Number(workspace.id))}
-                >
-                  <strong>{workspace.name}</strong>
-                  <span>
-                    {workspace.role ?? "member"}
-                    {workspace.join_code ? ` · ${workspace.join_code}` : ""}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="workspace-card workspace-main-card">
-          {!selectedWorkspace ? (
-            <div className="workspace-empty workspace-empty-large">
-              <div className="workspace-empty-icon">∑</div>
-              <h2>Select a workspace</h2>
-              <p>
-                Create or join a workspace to access questions, members,
-                computation, attempts and collaboration tools.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="workspace-card-header workspace-selected-header">
-                <div>
-                  <span className="eyebrow">Workspace</span>
-                  <h2>{selectedWorkspace.name}</h2>
-                  <span>
-                    Role: {selectedWorkspace.role ?? "member"}
-                    {selectedWorkspace.join_code
-                      ? ` · Join code: ${selectedWorkspace.join_code}`
-                      : ""}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  className="secondary danger-action"
-                  onClick={() => void leaveCurrentWorkspace()}
-                  disabled={busy}
-                >
-                  Leave
-                </button>
-              </div>
-
-              <div className="workspace-tabs">
-                {(["dashboard", "questions", "members", "invitations", "settings"] as const).map((tab) => (
-                  <button
-                    type="button"
-                    key={tab}
-                    className={activeTab === tab ? "active" : ""}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {activeTab === "dashboard" && (
-                <div className="workspace-dashboard">
-                  <div className="workspace-stat-grid">
-                    <div className="workspace-stat">
-                      <span>Questions</span>
-                      <strong>{questions.length}</strong>
-                    </div>
-                    <div className="workspace-stat">
-                      <span>Members</span>
-                      <strong>{members.length}</strong>
-                    </div>
-                    <div className="workspace-stat">
-                      <span>Invitations</span>
-                      <strong>{invitations.length}</strong>
-                    </div>
-                    <div className="workspace-stat">
-                      <span>Computation</span>
-                      <strong>{settings?.computation_mode ?? "offline"}</strong>
-                    </div>
-                  </div>
-
-                  <div className="workspace-dashboard-actions">
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={() => setActiveTab("questions")}
-                    >
-                      Open Questions
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => setActiveTab("members")}
-                    >
-                      View Members
-                    </button>
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => setActiveTab("settings")}
-                      >
-                        Workspace Settings
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "questions" && (
-                <div className="workspace-questions">
-                  <div className="workspace-question-create">
-                    <h3>Post a Question</h3>
-
-                    <textarea
-                      value={questionText}
-                      onChange={(event) => setQuestionText(event.target.value)}
-                      placeholder="Enter a computational problem..."
-                      rows={4}
-                    />
-
-                    <div className="workspace-form-row">
-                      <select
-                        value={questionType}
-                        onChange={(event) => setQuestionType(event.target.value)}
-                      >
-                        <option value="solver">Solver</option>
-                        <option value="assessment">Assessment</option>
-                        <option value="mcq">MCQ</option>
-                      </select>
-
-                      <select
-                        value={visibility}
-                        onChange={(event) => setVisibility(event.target.value)}
-                      >
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
-                      </select>
-
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => void createQuestion()}
-                        disabled={busy || !questionText.trim()}
-                      >
-                        Post Question
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="workspace-question-columns">
-                    <div className="workspace-question-list">
-                      <div className="workspace-card-header">
-                        <div>
-                          <h3>Questions</h3>
-                          <span>{questions.length} posted</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void refreshQuestions()}
-                        >
-                          Refresh
-                        </button>
-                      </div>
-
-                      {questions.length === 0 ? (
-                        <div className="workspace-empty">
-                          No questions have been posted yet.
-                        </div>
-                      ) : (
-                        questions.map((question) => (
-                          <button
-                            type="button"
-                            className={`workspace-question-item ${
-                              selectedQuestion?.id === question.id ? "active" : ""
-                            }`}
-                            key={question.id}
-                            onClick={() => void openQuestion(Number(question.id))}
-                          >
-                            <strong>{question.question}</strong>
-                            <span>
-                              {question.question_type ?? "solver"} ·{" "}
-                              {question.visibility ?? "public"}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="workspace-question-detail">
-                      {!selectedQuestion ? (
-                        <div className="workspace-empty">
-                          Select a question to view its details and solution.
-                        </div>
-                      ) : (
-                        <>
-                          <span className="eyebrow">Question</span>
-                          <h3>{selectedQuestion.question}</h3>
-
-                          <div className="workspace-detail-meta">
-                            <span>{selectedQuestion.question_type ?? "solver"}</span>
-                            <span>{selectedQuestion.visibility ?? "public"}</span>
-                            <span>Status: {selectedQuestion.status ?? "active"}</span>
-                          </div>
-
-                          <div className="workspace-compute-row">
-                            <select
-                              value={computationProvider}
-                              onChange={(event) =>
-                                setComputationProvider(event.target.value)
-                              }
-                            >
-                              <option value="wolfram">Wolfram Engine</option>
-                              <option value="sympy">SymPy</option>
-                              <option value="local_llm">Local LLM</option>
-                            </select>
-
-                            <button
-                              type="button"
-                              className="primary"
-                              onClick={() => void computeQuestion()}
-                              disabled={busy}
-                            >
-                              Compute
-                            </button>
-
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => void createAttempt()}
-                              disabled={busy}
-                            >
-                              Start Attempt
-                            </button>
-                          </div>
-
-                          {solution && (
-                            <div className="workspace-solution">
-                              <div className="workspace-solution-header">
-                                <span className="eyebrow">Solution</span>
-                                <span>
-                                  {solution.engine ?? computationProvider} ·{" "}
-                                  {solution.status ?? "completed"}
-                                </span>
-                              </div>
-
-                              <pre>
-                                {typeof solution.result_json === "string"
-                                  ? solution.result_json
-                                  : JSON.stringify(solution.result_json, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-
-                          <div className="workspace-attempts">
-                            <div className="workspace-card-header">
-                              <div>
-                                <h3>Attempts</h3>
-                                <span>{attempts.length} recorded</span>
-                              </div>
-                            </div>
-
-                            {attempts.map((attempt) => (
-                              <div className="workspace-attempt-item" key={attempt.id}>
-                                <strong>
-                                  Attempt #{attempt.id}
-                                </strong>
-                                <span>
-                                  {String(attempt.status ?? "in progress")}
-                                  {attempt.score != null
-                                    ? ` · Score: ${attempt.score}`
-                                    : ""}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="workspace-follow-up">
-                            <h3>Ask a Follow-up</h3>
-                            <textarea
-                              value={followUp}
-                              onChange={(event) => setFollowUp(event.target.value)}
-                              placeholder="Ask about this problem, method or solution..."
-                              rows={3}
-                            />
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => void sendFollowUp()}
-                              disabled={busy || !followUp.trim()}
-                            >
-                              Ask Follow-up
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "members" && (
-                <div className="workspace-members">
-                  <div className="workspace-card-header">
-                    <div>
-                      <h3>Members</h3>
-                      <span>{members.length} members</span>
-                    </div>
-                  </div>
-
-                  {isAdmin && (
-                    <div className="workspace-create-row">
-                      <input
-                        value={inviteUsername}
-                        onChange={(event) => setInviteUsername(event.target.value)}
-                        placeholder="Username to invite"
-                      />
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => void sendInvitation()}
-                        disabled={busy || !inviteUsername.trim()}
-                      >
-                        Invite
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="workspace-member-list">
-                    {members.length === 0 ? (
-                      <div className="workspace-empty">
-                        Member details are not available yet.
-                      </div>
-                    ) : (
-                      members.map((member) => (
-                        <div className="workspace-member-item" key={String(member.id ?? member.user_id ?? member.username ?? "member")}>
-                          <div>
-                            <strong>{member.username ?? `User ${member.user_id}`}</strong>
-                            <span>{member.role ?? "member"}</span>
-                          </div>
-
-                          {isAdmin &&
-                            member.username &&
-                            member.role !== "owner" &&
-                            member.role !== "admin" && (
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={async () => {
-                                  if (!selectedWorkspace?.id || !member.username) return;
-
-                                  try {
-                                    await promoteWorkspaceMember(Number(selectedWorkspace.id), Number(member.user_id));
-                                    await loadWorkspace(Number(selectedWorkspace.id));
-                                    setMessage(`${member.username} promoted.`);
-                                  } catch (err) {
-                                    setError(
-                                      err instanceof Error
-                                        ? err.message
-                                        : "Unable to promote member.",
-                                    );
-                                  }
-                                }}
-                                disabled={busy}
-                              >
-                                Promote
-                              </button>
-                            )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "invitations" && (
-                <div className="workspace-invitations">
-                  <div className="workspace-card-header">
-                    <div>
-                      <h3>Invitations</h3>
-                      <span>{invitations.length} invitation{invitations.length === 1 ? "" : "s"}</span>
-                    </div>
-                  </div>
-
-                  {invitations.length === 0 ? (
-                    <div className="workspace-empty">
-                      You have no pending invitations.
-                    </div>
-                  ) : (
-                    invitations.map((invitation) => (
-                      <div className="workspace-invitation-item" key={invitation.id}>
-                        <div>
-                          <strong>{invitation.workspace_name ?? "Workspace"}</strong>
-                          <span>
-                            Invited by {String(invitation.invited_username ?? invitation.invited_by ?? "workspace member")}
-                          </span>
-                        </div>
-
-                        {invitation.id != null && (
-                          <div className="workspace-invitation-actions">
-                            <button
-                              type="button"
-                              className="primary"
-                              onClick={() =>
-                                void handleAcceptInvitation(Number(invitation.id))
-                              }
-                              disabled={busy}
-                            >
-                              Accept
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() =>
-                                void handleDeclineInvitation(Number(invitation.id))
-                              }
-                              disabled={busy}
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {activeTab === "settings" && (
-                <WorkspaceSettingsPanel
-                  workspace={selectedWorkspace}
-                  settings={settings}
-                  enabled={isAdmin}
-                  busy={busy}
-                  onSaved={(nextSettings) => {
-                    setSettings(nextSettings);
-                    setMessage("Workspace settings updated.");
-                  }}
-                  onError={setError}
-                />
-              )}
-            </>
-          )}
-        </section>
-      </div>
-
-      <div className="workspace-user">
-        Signed in as <strong>{user.username}</strong>
-      </div>
-    </motion.div>
-  );
-}
-
-function WorkspaceSettingsPanel({
-  workspace,
-  settings,
-  enabled,
-  busy,
-  onSaved,
-  onError,
-}: {
-  workspace: Workspace;
-  settings: WorkspaceSettings | null;
-  enabled: boolean;
-  busy: boolean;
-  onSaved: (settings: WorkspaceSettings) => void;
-  onError: (message: string) => void;
-}) {
-  const [mode, setMode] = useState<"offline" | "online">(settings?.computation_mode === "online" ? "online" : "offline");
-  const [allowPosting, setAllowPosting] = useState(
-    settings?.allow_member_posting ?? true,
-  );
-  const [allowSolving, setAllowSolving] = useState(
-    settings?.allow_member_solving ?? true,
-  );
-
-  useEffect(() => {
-    setMode(settings?.computation_mode === "online" ? "online" : "offline");
-    setAllowPosting(settings?.allow_member_posting ?? true);
-    setAllowSolving(settings?.allow_member_solving ?? true);
-  }, [settings]);
-
-  async function save() {
-    if (!enabled || workspace.id == null) return;
-
-    try {
-      const response = await updateWorkspaceSettings({
-        WorkspaceId: Number(workspace.id),
-        ComputationMode: mode,
-        AllowMemberPosting: allowPosting,
-        AllowMemberSolving: allowSolving,
-      });
-
-      onSaved(response.data as WorkspaceSettings);
-    } catch (err) {
-      onError(
-        err instanceof Error
-          ? err.message
-          : "Unable to update workspace settings.",
-      );
-    }
-  }
-
-  return (
-    <div className="workspace-settings">
-      <div className="workspace-card-header">
-        <div>
-          <h3>Workspace Settings</h3>
-          <span>
-            {enabled
-              ? "Owner/admin controls"
-              : "Only workspace owners and admins can change these settings."}
-          </span>
-        </div>
-      </div>
-
-      <label className="workspace-setting">
-        <span>Computation mode</span>
-        <select
-          value={mode}
-          onChange={(event) =>
-            setMode(event.target.value as "offline" | "online")
-          }
-          disabled={!enabled}
-        >
-          <option value="offline">Offline</option>
-          <option value="online">Online</option>
-        </select>
-      </label>
-
-      <label className="workspace-setting-toggle">
-        <input
-          type="checkbox"
-          checked={allowPosting}
-          onChange={(event) => setAllowPosting(event.target.checked)}
-          disabled={!enabled}
-        />
-        <span>Allow members to post questions</span>
-      </label>
-
-      <label className="workspace-setting-toggle">
-        <input
-          type="checkbox"
-          checked={allowSolving}
-          onChange={(event) => setAllowSolving(event.target.checked)}
-          disabled={!enabled}
-        />
-        <span>Allow members to solve questions</span>
-      </label>
-
-      <button
-        type="button"
-        className="primary"
-        onClick={() => void save()}
-        disabled={!enabled || busy}
-      >
-        Save Settings
-      </button>
     </div>
   );
 }
@@ -2092,14 +883,9 @@ function WorkspaceSettingsPanel({
 function LoadingState({ message }: { message: string }) {
   return (
     <motion.div className="center-state" aria-live="polite" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <motion.div
-        className="spinner"
-        aria-hidden="true"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
-      />
+      <motion.div className="spinner" aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }} />
       <h2>{message}</h2>
-      <p>Please wait while Stepwise Prism AI prepares your session.</p>
+      <p>Please wait while Nova AI prepares your session.</p>
     </motion.div>
   );
 }
@@ -2119,8 +905,6 @@ function Composer({
   disabled: boolean;
   graphical: boolean;
 }) {
-  const placeholder = "Ask your question...";
-
   return (
     <motion.div className="composer" whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 250, damping: 20 }}>
       <input
@@ -2132,8 +916,8 @@ function Composer({
             onSubmit();
           }
         }}
-        placeholder={placeholder}
-        aria-label={placeholder}
+        placeholder="Ask your question..."
+        aria-label="Ask your question"
         disabled={disabled}
       />
       {!graphical && <label className="icon-button" aria-label="Upload image">

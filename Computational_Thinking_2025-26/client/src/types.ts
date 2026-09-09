@@ -1,23 +1,26 @@
-
 export type User = {
   id: number | string;
   username: string;
+  token?: string;
 };
 
 export type AuthResponse = {
   message: string;
-  data: User;
+  data: User & {
+    token: string;
+  };
 };
-
-export type Coordinate = [number, number];
 
 export type Question = {
   question: string;
   options: string[];
   hint: string;
   correct_option: number;
+  solution?: string;
   coordinates?: Coordinate[];
 };
+
+export type Coordinate = [number, number];
 
 export type QuestionResponse = {
   is_relevant: boolean;
@@ -58,3 +61,126 @@ export type HistoryDetail = {
   wrong_answered_question: string | null;
 };
 
+// === NOVA WORKSPACE TYPES ===
+
+export type WorkspaceRole = "owner" | "member" | string;
+
+export type Workspace = {
+  id: number;
+  name: string;
+  join_code?: string;
+  created_by?: number;
+  created_at?: string;
+  status?: string;
+  role?: WorkspaceRole;
+  member_count?: number;
+  [key: string]: unknown;
+};
+
+export type WorkspaceMember = {
+  workspace_id?: number;
+  user_id?: number;
+  username?: string;
+  role?: WorkspaceRole;
+  [key: string]: unknown;
+};
+
+export type WorkspaceSettings = {
+  workspace_id?: number;
+  computation_mode?: "offline" | "online" | string;
+  allow_member_posting?: boolean;
+  allow_member_solving?: boolean;
+  [key: string]: unknown;
+};
+
+export type WorkspaceQuestion = {
+  id: number;
+  workspace_id: number;
+  author_id?: number;
+  question: string;
+  image_path?: string | null;
+  question_type?: "solver" | "assessment" | "mcq" | string;
+  visibility?: "public" | "private" | string;
+  created_at?: string;
+  status?: string;
+  [key: string]: unknown;
+};
+
+export type WorkspaceSolution = {
+  id?: number;
+  workspace_question_id?: number;
+  engine?: string;
+  status?: "pending" | "computing" | "completed" | "failed" | string;
+  result_json?: unknown;
+  error_message?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: unknown;
+};
+
+export type WorkspaceAttempt = {
+  id?: number;
+  workspace_id?: number;
+  question_id?: number;
+  user_id?: number;
+  mode?: string;
+  submitted_answer?: string;
+  result?: unknown;
+  score?: number;
+  solution_revealed?: boolean;
+  created_at?: string;
+  completed_at?: string;
+  [key: string]: unknown;
+};
+
+export type WorkspaceInvitation = {
+  id?: number;
+  workspace_id?: number;
+  workspace_name?: string;
+  inviter_id?: number;
+  inviter_username?: string;
+  invitee_id?: number;
+  status?: string;
+  created_at?: string;
+  [key: string]: unknown;
+};
+
+export type WorkspaceFollowUp = {
+  id?: number;
+  workspace_id?: number;
+  question_id?: number;
+  question?: string;
+  answer?: string;
+  engine?: string;
+  created_at?: string;
+  [key: string]: unknown;
+};
+
+export type WorkspaceApiResponse<T = unknown> = {
+  message?: string;
+  data?: T;
+  count?: number;
+  [key: string]: unknown;
+};
+
+export type WorkspaceComputeRequest = {
+  workspace_id: number;
+  question_id: number;
+  operation?: string;
+  provider?: "wolfram" | "sympy" | "local_llm" | string;
+};
+
+export type WorkspaceQuestionCreateRequest = {
+  WorkspaceId: number;
+  Question: string;
+  ImagePath?: string | null;
+  QuestionType?: "solver" | "assessment" | "mcq" | string;
+  Visibility?: "public" | "private" | string;
+};
+
+export type WorkspaceSettingsUpdateRequest = {
+  WorkspaceId: number;
+  ComputationMode: "offline" | "online";
+  AllowMemberPosting: boolean;
+  AllowMemberSolving: boolean;
+};
