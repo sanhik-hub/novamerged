@@ -1879,7 +1879,7 @@ function WorkspacePanel({
                                   if (!selectedWorkspace?.id || !member.username) return;
 
                                   try {
-                                    await promoteWorkspaceMember(Number(selectedWorkspace.id), member.username);
+                                    await promoteWorkspaceMember(Number(selectedWorkspace.id), Number(member.user_id));
                                     await loadWorkspace(Number(selectedWorkspace.id));
                                     setMessage(`${member.username} promoted.`);
                                   } catch (err) {

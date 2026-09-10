@@ -1,0 +1,170 @@
+﻿function Composer({
+  value,
+  onChange,
+  onSubmit,
+  onImage,
+  disabled,
+  graphical,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onImage: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled: boolean;
+  graphical: boolean;
+}) {
+  const placeholder = "Ask your question...";
+
+  return (
+    <motion.div className="composer" whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 250, damping: 20 }}>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            onSubmit();
+          }
+        }}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        disabled={disabled}
+      />
+      {!graphical && <label className="icon-button" aria-label="Upload image">
+        📎
+        <input
+          type="file"
+          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+          hidden
+          onChange={onImage}
+          disabled={disabled}
+        />
+      </label>}
+      <motion.button className="send" whileHover={{ scale: 1.08, rotate: -5 }} whileTap={{ scale: 0.9 }} onClick={onSubmit} disabled={disabled} aria-label="Send">➤</motion.button>
+    </motion.div>
+  );
+}
+
+function GraphEditor({
+  coordinates,
+  onChange,
+}: {
+  coordinates: Coordinate[];
+  onChange: (coordinates: Coordinate[]) => void;
+}) {
+  return (
+    <motion.div className="graph-editor" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0 }} transition={{ type: "spring", stiffness: 150, damping: 20 }}>
+      <div className="graph-editor-header">
+        <div>
+          <strong>Graph</strong>
+          <span>{coordinates.length}/4 points</span>
+        </div>
+        <div className="graph-editor-actions">
+          <button
+            type="button"
+            className="graph-control"
+            onClick={() => onChange([...coordinates, [0, 0]])}
+            disabled={coordinates.length >= 4}
+          >
+            + Add point
+          </button>
+          <button
+            type="button"
+            className="graph-control"
+            onClick={() => onChange(coordinates.slice(0, -1))}
+            disabled={coordinates.length === 0}
+          >
+            − Remove point
+          </button>
+        </div>
+      </div>
+      <GraphCanvas coordinates={coordinates} editable onChange={onChange} />
+      <p className="graph-help">Drag points to place them on the 20 × 20 grid.</p>
+    </motion.div>
+  );
+}
+
+function GraphCanvas({
+  coordinates,
+  editable = false,
+  onChange,
+}: {
+  coordinates: Coordinate[];
+  editable?: boolean;
+  onChange?: (coordinates: Coordinate[]) => void;
+}) {
+  const size = 540;
+  const graphPadding = 30;
+  const origin = size / 2;
+  const plotSize = size - graphPadding * 2;
+  const largestCoordinate = coordinates.reduce(
+    (largest, [x, y]) => Math.max(largest, Math.abs(x), Math.abs(y)),
+    0,
+  );
+  const axisLimit = editable
+    ? 20
+    : Math.max(10, Math.ceil((largestCoordinate + 10) / 10) * 10);
+  const unit = plotSize / (axisLimit * 2);
+  const toSvg = ([x, y]: Coordinate) => [origin + x * unit, origin - y * unit];
+
+  function movePoint(index: number, event: React.PointerEvent<SVGCircleElement>) {
+    if (!editable || !onChange) return;
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const update = (moveEvent: PointerEvent) => {
+      const rect = svg.getBoundingClientRect();
+      const x = ((moveEvent.clientX - rect.left) / rect.width) * size;
+      const y = ((moveEvent.clientY - rect.top) / rect.height) * size;
+      const next: Coordinate = [
+        Math.max(-axisLimit, Math.min(axisLimit, Math.round(((x - origin) / unit) * 2) / 2)),
+        Math.max(-axisLimit, Math.min(axisLimit, Math.round(((origin - y) / unit) * 2) / 2)),
+      ];
+      onChange(coordinates.map((point, pointIndex) => pointIndex === index ? next : point));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", update);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", update);
+    window.addEventListener("pointerup", stop, { once: true });
+  }
+
+  return (
+    <svg
+      className={`graph-canvas ${editable ? "editable" : ""}`}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label="Coordinate graph"
+      onPointerDown={(event) => { if (editable && event.target === event.currentTarget) event.preventDefault(); }}
+    >
+      <rect width={size} height={size} className="graph-background" />
+      {Array.from({ length: 21 }, (_, index) => {
+        const label = -axisLimit + index * (axisLimit / 10);
+        const position = graphPadding + index * (plotSize / 20);
+        return <g key={index}>
+          <line x1={position} y1="0" x2={position} y2={size} className="graph-grid-line" />
+          <line x1="0" y1={position} x2={size} y2={position} className="graph-grid-line" />
+          {label !== 0 && label % 2 === 0 && <>
+            <text x={position} y={origin + 16} textAnchor="middle" className="graph-coordinate-label">{label}</text>
+            <text x={origin - 7} y={origin - label * unit + 4} textAnchor="end" className="graph-coordinate-label">{label}</text>
+          </>}
+        </g>;
+      })}
+      <line x1="0" y1={origin} x2={size} y2={origin} className="graph-axis" />
+      <line x1={origin} y1={size} x2={origin} y2="0" className="graph-axis" />
+      <text x="16" y={origin - 8} className="graph-axis-label">x&apos;</text>
+      <text x={size - 18} y={origin - 8} className="graph-axis-label">x</text>
+      <text x={origin + 8} y="20" className="graph-axis-label">y</text>
+      <text x={origin + 8} y={size - 10} className="graph-axis-label">y&apos;</text>
+      <text x={origin + 8} y={origin + 16} className="graph-axis-label">O</text>
+      {coordinates.length >= 3 && <polygon points={coordinates.map(toSvg).map(([x, y]) => `${x},${y}`).join(" ")} className="graph-line" />}
+      {coordinates.length === 2 && <polyline points={coordinates.map(toSvg).map(([x, y]) => `${x},${y}`).join(" ")} className="graph-line" />}
+      {coordinates.map((point, index) => {
+        const [x, y] = toSvg(point);
+        return <g key={index}><circle cx={x} cy={y} r="8" className={`graph-point point-${index}`} onPointerDown={(event) => movePoint(index, event)} /><text x={x + 10} y={y - 10} className="graph-point-label">P{index + 1} ({point[0]}, {point[1]})</text></g>;
+      })}
+    </svg>
+  );
+}
+

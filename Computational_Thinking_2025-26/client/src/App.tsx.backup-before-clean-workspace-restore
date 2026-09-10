@@ -1,0 +1,4010 @@
+﻿import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  login,
+  postDoubtQuestion,
+  postGraphicalQuestion,
+  postQuestion,
+  postScore,
+  signup,
+  getUserHistory,
+  getHistoryDetail,
+  createWorkspace,
+  joinWorkspace,
+  getWorkspaces,
+  getWorkspaceDetails,
+  leaveWorkspace,
+  inviteToWorkspace,
+  getWorkspaceInvitations,
+  acceptWorkspaceInvitation,
+  declineWorkspaceInvitation,
+  promoteWorkspaceMember,
+  updateWorkspaceSettings,
+  createWorkspaceQuestion,
+  getWorkspaceQuestions,
+  getWorkspaceQuestionDetails,
+
+  createWorkspaceAttempt,
+  completeWorkspaceAttempt,
+  
+  getWorkspaceQuestionAttempts,
+  postWorkspaceQuestionFollowUp,
+} from "./services/api";
+import { uploadQuestionImage } from "./services/supabase";
+import type {
+  Coordinate,
+  LearnAgainResponse,
+  Question,
+  QuestionResponse,
+  User,
+  HistoryEntry,
+  HistoryDetail,
+  Workspace,
+  WorkspaceMember,
+  WorkspaceSettings,
+  WorkspaceQuestion,
+  WorkspaceAttempt,
+  WorkspaceInvitation,
+} from "./types";
+import MathText from "./components/MathText";
+import "./App.css";
+
+type Page = "landing" | "login" | "signup" | "app";
+type Stage = "home" | "loading" | "quiz" | "result" | "learnAgain" | "original" | "evaluation" | "history_view" | "workspace";
+type Mode = "standard" | "graphical";
+
+type StoredSession = {
+  id: number | string;
+  username: string;
+};
+
+const SESSION_KEY = "nova_ai_session";
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const DESKTOP_SIDEBAR_QUERY = "(min-width: 701px)";
+
+const quotes = [
+  "Every expert was once a beginner.",
+  "The important thing is not to stop questioning.",
+  "Learning never exhausts the mind.",
+  "Small steps lead to big discoveries.",
+  "Curiosity is the beginning of understanding.",
+];
+
+// Floating math symbols for decorative background
+const MATH_SYMBOLS = [
+  { char: "&#8721;", size: 110, left: 5,  delay: 0,    duration: 18 },
+  { char: "&#8747;", size: 130, left: 15, delay: 3,    duration: 22 },
+  { char: "ÃƒÂÃ¢â€šÂ¬",  size: 95,  left: 28, delay: 6,    duration: 16 },
+  { char: "&#8730;",  size: 105, left: 42, delay: 1.5,  duration: 20 },
+  { char: "&#8734;",  size: 90,  left: 58, delay: 9,    duration: 25 },
+  { char: "ÃƒÅ½Ã¢â‚¬Â",  size: 100, left: 72, delay: 4,    duration: 19 },
+  { char: "ÃƒÅ½Ã‚Â¸",  size: 85,  left: 85, delay: 7,    duration: 21 },
+  { char: "ÃƒÅ½Ã‚Â»",  size: 115, left: 93, delay: 2,    duration: 17 },
+  { char: "&#8706;",  size: 92,  left: 35, delay: 11,   duration: 23 },
+    { char: "&ge;", size: 88, left: 65, delay: 5, duration: 15 },
+  { char: "&#8711;",  size: 108, left: 50, delay: 13,   duration: 24 },
+  { char: "&#8712;",  size: 82,  left: 78, delay: 8,    duration: 20 },
+];
+
+function MathBackground() {
+  return (
+    <div className="math-bg" aria-hidden="true">
+      {MATH_SYMBOLS.map((sym, i) => (
+        <span
+          key={i}
+          className="math-symbol"
+          style={{
+            left: `${sym.left}%`,
+            bottom: "-80px",
+            fontSize: `${sym.size}px`,
+            animationDuration: `${sym.duration}s`,
+            animationDelay: `${sym.delay}s`,
+          }}
+        >
+          {sym.char}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function readStoredSession(): User | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("id" in parsed) ||
+      !("username" in parsed) ||
+      (typeof parsed.id !== "string" && typeof parsed.id !== "number") ||
+      typeof parsed.username !== "string" ||
+      !parsed.username.trim()
+    ) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return parsed as StoredSession;
+  } catch {
+    localStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
+function isQuestion(value: unknown): value is Question {
+  if (typeof value !== "object" || value === null) return false;
+  if (!("question" in value) || !("options" in value) || !("hint" in value) || !("correct_option" in value)) {
+    return false;
+  }
+
+  const question = value.question;
+  const options = value.options;
+  const hint = value.hint;
+  const correctOption = value.correct_option;
+  const solution = "solution" in value ? value.solution : undefined;
+  const coordinates = "coordinates" in value ? value.coordinates : undefined;
+
+  return (
+    typeof question === "string" &&
+    question.trim().length > 0 &&
+    Array.isArray(options) &&
+    options.length === 4 &&
+    options.every((option) => typeof option === "string") &&
+    typeof hint === "string" &&
+    typeof correctOption === "number" &&
+    Number.isInteger(correctOption) &&
+    correctOption >= 1 &&
+    correctOption <= 4 &&
+    (solution === undefined || typeof solution === "string") &&
+    (coordinates === undefined || (
+      Array.isArray(coordinates) &&
+      coordinates.length <= 4 &&
+      coordinates.every((point) => (
+        Array.isArray(point) && point.length === 2 &&
+        point.every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate))
+      ))
+    ))
+  );
+}
+
+function validateQuestionResponse(value: unknown): QuestionResponse | null {
+  if (typeof value !== "object" || value === null) return null;
+  if (!("is_relevant" in value) || typeof value.is_relevant !== "boolean") return null;
+  if (!("error_message" in value) || typeof value.error_message !== "string") return null;
+
+  if (!value.is_relevant) {
+    return value as QuestionResponse;
+  }
+
+  if (
+    !("ai_questions" in value) ||
+    !Array.isArray(value.ai_questions) ||
+    value.ai_questions.length === 0 ||
+    !value.ai_questions.every(isQuestion) ||
+    !("user_question" in value) ||
+    !isQuestion(value.user_question)
+  ) {
+    return null;
+  }
+
+  return value as QuestionResponse;
+}
+
+function validateLearnAgainResponse(value: unknown): LearnAgainResponse | null {
+  if (typeof value !== "object" || value === null) return null;
+  if (
+    !("ai_questions" in value) ||
+    !Array.isArray(value.ai_questions) ||
+    value.ai_questions.length === 0 ||
+    !value.ai_questions.every(isQuestion)
+  ) {
+    return null;
+  }
+  if (!("user_question" in value) || !isQuestion(value.user_question)) return null;
+  return value as LearnAgainResponse;
+}
+
+function App() {
+  const [page, setPage] = useState<Page>(() => (readStoredSession() ? "app" : "landing"));
+  const [user, setUser] = useState<User | null>(() => readStoredSession());
+
+  function authenticate(userData: User) {
+    const safeUser = { id: userData.id, username: userData.username.trim() };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+    setUser(safeUser);
+    setPage("app");
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    setUser(null);
+    setPage("landing");
+  }
+
+  if (page === "landing") {
+    return <Landing onLogin={() => setPage("login")} onSignup={() => setPage("signup")} />;
+  }
+
+  if (page === "login" || page === "signup") {
+    return (
+      <Auth
+        mode={page}
+        onBack={() => setPage("landing")}
+        onSwitch={() => setPage(page === "login" ? "signup" : "login")}
+        onAuthenticated={authenticate}
+      />
+    );
+  }
+
+  if (!user) {
+    return <Landing onLogin={() => setPage("login")} onSignup={() => setPage("signup")} />;
+  }
+
+  return <NovaAI user={user} onLogout={logout} />;
+}
+
+function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
+  return (
+    <motion.main
+      className="landing"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.65 }}
+    >
+      <MathBackground />
+      <div className="ambient ambient-one" />
+      <div className="ambient ambient-two" />
+      <motion.div
+        className="landing-content"
+        initial={{ opacity: 0, y: 45, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 90, damping: 15 }}
+      >
+        <motion.div
+          className="logo"
+          initial={{ y: -18, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.15 }}
+        >
+          <span className="logo-icon">&#8721;</span>
+          Stepwise Prism AI
+        </motion.div>
+
+        <motion.p
+          className="landing-formula"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          f(x) = &#8747;&#8320;x g(t) dt &nbsp; &middot; &nbsp; lim(n&#8594;&#8734;) (1 + 1/n)&#61; = e &nbsp; &middot; &nbsp; &#8711;&#178;&#966; = &#960;/&#949;&#8320;
+        </motion.p>
+
+        <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          Learn by <span>understanding.</span>
+        </motion.h1>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+          Ask any question, practice the concept through AI-generated scaffolding, and discover whether you truly understood it.
+        </motion.p>
+        <motion.div className="landing-actions" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+          <motion.button whileHover={{ scale: 1.045, y: -3 }} whileTap={{ scale: 0.97 }} className="primary" onClick={onSignup}>Get started</motion.button>
+          <motion.button whileHover={{ scale: 1.045, y: -3 }} whileTap={{ scale: 0.97 }} className="secondary" onClick={onLogin}>Log in</motion.button>
+        </motion.div>
+
+        <motion.div
+          className="landing-pills"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+        >
+          <span className="landing-pill"><span>&#8721;</span>Scaffolded MCQs</span>
+          <span className="landing-pill"><span>&#8747;</span>Step-by-step hints</span>
+          <span className="landing-pill"><span>ÃƒÂÃ¢â€šÂ¬</span>Graph mode</span>
+          <span className="landing-pill"><span>ÃƒÅ½Ã¢â‚¬Â</span>Learn Again</span>
+          <span className="landing-pill"><span>&#8730;</span>AI-powered feedback</span>
+        </motion.div>
+      </motion.div>
+    </motion.main>
+  );
+}
+
+function Auth({
+  mode,
+  onBack,
+  onSwitch,
+  onAuthenticated,
+}: {
+  mode: "login" | "signup";
+  onBack: () => void;
+  onSwitch: () => void;
+  onAuthenticated: (user: User) => void;
+}) {
+  const isLogin = mode === "login";
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [standard, setStandard] = useState<number | "">("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+
+    const cleanUsername = username.trim();
+    if (!cleanUsername || !password) {
+      setError("Username and password are required.");
+      return;
+    }
+
+    if (!isLogin && (standard === "" || standard < 6 || standard > 12)) {
+      setError("Please select your class (6 &ldquo; 12).");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = isLogin
+        ? await login(cleanUsername, password)
+        : await signup(cleanUsername, password, standard as number);
+      if (!response.data || typeof response.data.username !== "string") {
+        throw new Error("Stepwise Prism AI returned an invalid account response.");
+      }
+      onAuthenticated(response.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <motion.main className="auth-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
+      <MathBackground />
+      <motion.form className="auth-card" onSubmit={submit} initial={{ opacity: 0, y: 35, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 100, damping: 16 }}>
+        <motion.button type="button" className="back" onClick={onBack} whileHover={{ x: -4 }} whileTap={{ scale: 0.96 }}>&larr; Back</motion.button>
+        <motion.div className="logo" initial={{ scale: 0.7, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 160 }}>
+          <span className="logo-icon">&#8721;</span>
+          Stepwise Prism AI
+        </motion.div>
+        <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>{isLogin ? "Welcome back" : "Create your account"}</motion.h1>
+        <p className="muted">{isLogin ? "Log in to continue learning." : "Start your learning journey."}</p>
+
+        <label htmlFor="username">Username
+          <input
+            id="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="Enter username"
+            autoComplete="username"
+            disabled={loading}
+          />
+        </label>
+
+        <label htmlFor="password">Password
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Enter password"
+            autoComplete={isLogin ? "current-password" : "new-password"}
+            disabled={loading}
+          />
+        </label>
+
+        {!isLogin && (
+          <label htmlFor="standard">Class / Standard
+            <select
+              id="standard"
+              value={standard}
+              onChange={(event) => setStandard(event.target.value === "" ? "" : Number(event.target.value))}
+              disabled={loading}
+              aria-required="true"
+            >
+              <option value="">Select your class</option>
+              {[6, 7, 8, 9, 10, 11, 12].map((cls) => (
+                <option key={cls} value={cls}>Class {cls}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <AnimatePresence mode="wait">
+          {error && <motion.div className="error" role="alert" initial={{ opacity: 0, height: 0, y: -8 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -8 }}> {error}</motion.div>}
+        </AnimatePresence>
+        <motion.button whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} className="primary full" disabled={loading}>
+          {loading ? (isLogin ? "Signing in..." : "Creating account...") : isLogin ? "Log in" : "Create account"}
+        </motion.button>
+        <motion.button whileHover={{ y: -1 }} type="button" className="switch-auth" onClick={onSwitch} disabled={loading}>
+          {isLogin ? "Don't have an account? Sign up" : "Already have an account? Log in"}
+        </motion.button>
+      </motion.form>
+    </motion.main>
+  );
+}
+
+function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const [sidebarOpen, setSidebarOpen] = useState(() => (
+    typeof window === "undefined" ? true : window.matchMedia(DESKTOP_SIDEBAR_QUERY).matches
+  ));
+  const [stage, setStage] = useState<Stage>("home");
+  const [quote, setQuote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
+  const [questionText, setQuestionText] = useState("");
+  const [mode, setMode] = useState<Mode>("standard");
+  const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePath, setImagePath] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Understanding your question...");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [originalQuestion, setOriginalQuestion] = useState<Question | null>(null);
+  const [sessionResponse, setSessionResponse] = useState<QuestionResponse | null>(null);
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [showHint, setShowHint] = useState(false);
+  const [error, setError] = useState("");
+  const [score, setScore] = useState(0);
+  const [finalAnswer, setFinalAnswer] = useState<number | null>(null);
+  const [learnAnswers, setLearnAnswers] = useState<Record<number, number>>({});
+  const [learnCurrent, setLearnCurrent] = useState(0);
+  const [learnQuestions, setLearnQuestions] = useState<Question[]>([]);
+  const [learnError, setLearnError] = useState("");
+  const [learnLoadingIndex, setLearnLoadingIndex] = useState<number | null>(null);
+  const [learnScore, setLearnScore] = useState(0);
+  const [showLearnResult, setShowLearnResult] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [currentHistoryDetail, setCurrentHistoryDetail] = useState<HistoryDetail | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(DESKTOP_SIDEBAR_QUERY);
+    const syncSidebar = (event: MediaQueryListEvent) => setSidebarOpen(event.matches);
+
+    mediaQuery.addEventListener("change", syncSidebar);
+    return () => mediaQuery.removeEventListener("change", syncSidebar);
+  }, []);
+
+  useEffect(() => {
+    // Load history when component mounts
+    async function loadHistory() {
+      try {
+        const response = await getUserHistory(user.username);
+        setHistory(response.data);
+      } catch (err) {
+        // History loading error - silently fail, not critical to user experience
+        console.error("Failed to load history:", err);
+      }
+    }
+    void loadHistory();
+  }, [user.username]);
+
+  function removeImage() {
+    setImage(null);
+    setImagePath("");
+    setImagePreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
+  }
+
+  function newChat() {
+    removeImage();
+    setQuestionText("");
+    setMode("standard");
+    setCoordinates([]);
+    setQuestions([]);
+    setOriginalQuestion(null);
+    setSessionResponse(null);
+    setCurrent(0);
+    setAnswers({});
+    setShowHint(false);
+    setScore(0);
+    setFinalAnswer(null);
+    setError("");
+    setLearnError("");
+    setLearnQuestions([]);
+    setLearnAnswers({});
+    setLearnCurrent(0);
+    setLearnLoadingIndex(null);
+    setLearnScore(0);
+    setShowLearnResult(false);
+    setQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+    setStage("home");
+    window.location.reload();
+  }
+
+  function openWorkspace() {
+    setStage("workspace");
+  }
+  async function viewHistoryItem(historyId: number) {
+    try {
+      setStage("loading");
+      setLoadingMessage("Loading your history...");
+      
+      const response = await getHistoryDetail(user.username, historyId);
+      setCurrentHistoryDetail(response.data);
+      setStage("history_view");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load history detail");
+      setStage("home");
+    }
+  }
+
+  async function selectImage(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "image/heif",
+    ];
+    const fileExtension = file.name.split(".").pop()?.toLowerCase();
+    const allowedExtensions = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
+    if (
+      (file.type && !allowedTypes.includes(file.type)) ||
+      (!file.type && !fileExtension) ||
+      (fileExtension && !allowedExtensions.includes(fileExtension))
+    ) {
+      setError("Please choose a JPG, PNG, WEBP, HEIC or HEIF image.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError("Image is too large. Please choose an image up to 10 MB.");
+      return;
+    }
+
+    setError("");
+    removeImage();
+    setImage(file);
+    setImagePreview(URL.createObjectURL(file));
+
+    setImageUploading(true);
+    try {
+      const uploadedPath = await uploadQuestionImage(file);
+      setImagePath(uploadedPath);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image upload failed. Please try again.");
+      removeImage();
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  async function submitQuestion() {
+    const cleanQuestion = questionText.trim();
+    if (!cleanQuestion && !image) {
+      setError("Enter a question or upload an image.");
+      return;
+    }
+
+    if (imageUploading || stage === "loading") return;
+
+    setError("");
+    setStage("loading");
+
+    try {
+      setLoadingMessage(
+        mode === "graphical" ? "Reading your graph..." :
+        "Understanding your question..."
+      );
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+      setLoadingMessage("Generating a personalized practice session...");
+
+      const rawResponse = mode === "graphical"
+        ? await postGraphicalQuestion(user.username, cleanQuestion, coordinates)
+        : await postQuestion(user.username, cleanQuestion, imagePath);
+      const response = validateQuestionResponse(rawResponse);
+
+      if (!response) {
+        throw new Error("Something went wrong while preparing your practice session. Please try again.");
+      }
+
+      if (response.is_relevant !== true) {
+        setError(response.error_message || "This question could not be processed.");
+        setStage("home");
+        return;
+      }
+
+      setSessionResponse(response);
+      setQuestions(response.ai_questions);
+      setOriginalQuestion(response.user_question);
+      setCurrent(0);
+      setAnswers({});
+      setShowHint(false);
+      setStage("quiz");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to connect to Stepwise Prism AI. Please try again.");
+      setStage("home");
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  function chooseAnswer(option: number) {
+    setAnswers((previous) => ({ ...previous, [current]: option }));
+  }
+
+  function finishPractice() {
+    const finalScore = questions.reduce(
+      (total, item, index) => total + (answers[index] === item.correct_option ? 1 : 0),
+      0,
+    );
+    const wrongAnsweredQuestions = questions
+      .filter((item, index) => answers[index] !== item.correct_option)
+      .map((item) => item.question)
+      .join(", ");
+
+    setScore(finalScore);
+    setShowHint(false);
+    setStage("result");
+
+    if (sessionResponse) {
+      void postScore(
+        user.username,
+        JSON.stringify(sessionResponse),
+        wrongAnsweredQuestions,
+        `${finalScore}/${questions.length}`,
+      ).catch(() => {
+        // Saving the score should not prevent the result from being shown.
+      });
+    }
+  }
+
+  function nextQuestion() {
+    if (answers[current] == null) return;
+
+    if (current < questions.length - 1) {
+      setCurrent((value) => value + 1);
+      setShowHint(false);
+      return;
+    }
+
+    finishPractice();
+  }
+
+  function previousQuestion() {
+    if (current === 0) return;
+    setCurrent((value) => value - 1);
+    setShowHint(false);
+  }
+
+  function startOriginal() {
+    setFinalAnswer(null);
+    setShowHint(false);
+    setStage("original");
+  }
+
+  function submitOriginal() {
+    if (!originalQuestion || finalAnswer == null) return;
+    setStage("evaluation");
+  }
+
+  async function learnAgain(question: Question, reviewIndex: number) {
+    if (!sessionResponse || learnLoadingIndex !== null) return;
+
+    setLearnError("");
+    setLearnLoadingIndex(reviewIndex);
+    setLoadingMessage("Preparing easier practice...");
+    setStage("loading");
+
+    try {
+      const rawResponse = await postDoubtQuestion(
+        user.username,
+        question.question,
+        JSON.stringify(sessionResponse),
+      );
+      const response = validateLearnAgainResponse(rawResponse);
+      if (!response) {
+        throw new Error("Something went wrong while preparing the new practice session. Please try again.");
+      }
+
+      setLearnQuestions(response.ai_questions);
+      setLearnAnswers({});
+      setLearnCurrent(0);
+      setLearnScore(0);
+      setShowLearnResult(false);
+      setShowHint(false);
+      setLearnError("");
+      setStage("learnAgain");
+    } catch (err) {
+      setLearnError(err instanceof Error ? err.message : "Unable to prepare easier practice. Please try again.");
+      setStage("result");
+    } finally {
+      setLearnLoadingIndex(null);
+    }
+  }
+
+  function chooseLearnAnswer(option: number) {
+    setLearnAnswers((previous) => ({ ...previous, [learnCurrent]: option }));
+  }
+
+  function nextLearnQuestion() {
+    if (learnAnswers[learnCurrent] == null) return;
+    if (learnCurrent < learnQuestions.length - 1) {
+      setLearnCurrent((value) => value + 1);
+      setShowHint(false);
+      return;
+    }
+    const finalLearnScore = learnQuestions.reduce(
+      (total, item, index) => total + (learnAnswers[index] === item.correct_option ? 1 : 0),
+      0,
+    );
+    setLearnScore(finalLearnScore);
+    setShowLearnResult(true);
+    setShowHint(false);
+    setStage("result");
+  }
+
+  const progress = questions.length ? ((current + 1) / questions.length) * 100 : 0;
+  const learnProgress = learnQuestions.length ? ((learnCurrent + 1) / learnQuestions.length) * 100 : 0;
+
+  const review = useMemo(
+    () => questions.map((question, index) => ({
+      question,
+      index,
+      selected: answers[index] ?? null,
+      correct: answers[index] === question.correct_option,
+    })),
+    [answers, questions],
+  );
+
+  const learnReview = useMemo(
+    () => learnQuestions.map((question, index) => ({
+      question,
+      index,
+      selected: learnAnswers[index] ?? null,
+      correct: learnAnswers[index] === question.correct_option,
+    })),
+    [learnAnswers, learnQuestions],
+  );
+
+  return (
+    <div className={`app-shell ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+      <motion.div className="ambient ambient-app-one" animate={{ x: [0, 35, 0], y: [0, -20, 0] }} transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }} />
+      <motion.div className="ambient ambient-app-two" animate={{ x: [0, -28, 0], y: [0, 25, 0] }} transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }} />
+      <MathBackground />
+      <button
+        type="button"
+        className={`sidebar-toggle ${sidebarOpen ? "is-open" : ""}`}
+        onClick={() => setSidebarOpen((value) => !value)}
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+        aria-expanded={sidebarOpen}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+        />
+      )}
+<motion.aside className="sidebar" aria-hidden={!sidebarOpen} initial={false} animate={{ opacity: sidebarOpen ? 1 : 0.85 }} transition={{ type: "spring", stiffness: 240, damping: 26 }}>
+      
+        <div className="brand">
+          <span className="brand-icon">&#8721;</span>
+          <span className="brand-name"><span>Stepwise</span><span>Prism AI</span></span>
+        </div>
+                <button type="button" className="workspace-button" onClick={openWorkspace}>
+          Workspaces
+        </button>
+<button className="new-chat" onClick={newChat}>ÃƒÂ¯Ã‚Â¼Ã¢â‚¬Â¹ New Chat</button>
+
+        <div className="mode-switcher" aria-label="Question mode">
+          <button
+            type="button"
+            className={mode === "standard" ? "active" : ""}
+            aria-pressed={mode === "standard"}
+            onClick={() => { setMode("standard"); setCoordinates([]); }}
+          >
+            Standard
+          </button>
+          <button
+            type="button"
+            className={mode === "graphical" ? "active" : ""}
+            aria-pressed={mode === "graphical"}
+            onClick={() => setMode("graphical")}
+          >
+            Graphical
+          </button>
+        </div>
+        
+        {/* History Section */}
+        {history.length > 0 && (
+          <div className="history-section">
+            <div className="history-title">Chat History</div>
+            <div className="history-list">
+              {history.map((item) => (
+                <button
+                  key={item.id}
+                  className="history-item"
+                  onClick={() => viewHistoryItem(item.id)}
+                  title={item.user_question}
+                >
+                  <span className="history-question">{item.user_question.substring(0, 30)}{item.user_question.length > 30 ? "..." : ""}</span>
+                  <span className="history-score">{item.score}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div className="sidebar-bottom">
+          <div className="username" title={user.username}>{user.username}</div>
+          <button className="logout" onClick={onLogout}>Log out</button>
+        </div>
+      </motion.aside>
+
+      <main className="main">
+        <AnimatePresence mode="wait" initial={false}>
+        {stage === "home" && (
+          <motion.div key="home" className="home-content" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45, ease: "easeOut" }}>
+            <div className="welcome">
+              <h1>Hi, {user.username} </h1>
+                <p>&ldquo;{quote}&rdquo;</p>
+            </div>
+
+            <div className="composer-wrapper">
+              {imagePreview && (
+                <div className="image-preview">
+                  <img src={imagePreview} alt="Selected question preview" />
+                  <button type="button" onClick={removeImage} aria-label="Remove image">&#215;</button>
+                </div>
+              )}
+
+              {error && <div className="error composer-error" role="alert">{error}</div>}
+
+              {mode === "graphical" && (
+                <GraphEditor coordinates={coordinates} onChange={setCoordinates} />
+              )}
+              <Composer
+                value={questionText}
+                onChange={setQuestionText}
+                onSubmit={submitQuestion}
+                onImage={selectImage}
+                disabled={imageUploading}
+                graphical={mode === "graphical"}
+              />
+              {image && (
+                <p className="attachment-name">
+                  {imageUploading ? "Uploading image..." : image.name}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {stage === "loading" && (
+          <motion.div key="loading" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ type: "spring", stiffness: 120, damping: 18 }}><LoadingState message={loadingMessage} /></motion.div>
+        )}
+
+        {stage === "quiz" && questions[current] && (
+          <motion.div key={`quiz-${current}`} initial={{ opacity: 0, x: 55, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -55, scale: 0.98 }} transition={{ type: "spring", stiffness: 120, damping: 20 }}>
+          <Quiz
+            question={questions[current]}
+            current={current}
+            total={questions.length}
+            progress={progress}
+            selected={answers[current] ?? null}
+            showHint={showHint}
+            onSelect={chooseAnswer}
+            onHint={() => setShowHint(true)}
+            onNext={nextQuestion}
+            onPrevious={previousQuestion}
+          />
+          </motion.div>
+        )}
+
+        {stage === "result" && (
+          <motion.div key="result" className="result-page" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -25 }} transition={{ duration: 0.5 }}>
+            <div className="result-card">
+              <span className="eyebrow">Practice complete</span>
+              <h1>Quiz Complete!</h1>
+              <div className="score">{score} / {questions.length}</div>
+              <div className="progress-track" aria-label={`${questions.length ? Math.round((score / questions.length) * 100) : 0}% correct`}>
+                <div style={{ width: `${questions.length ? (score / questions.length) * 100 : 0}%` }} />
+              </div>
+              <p>{questions.length ? Math.round((score / questions.length) * 100) : 0}% Correct</p>
+            </div>
+
+            {learnError && <div className="error review-error" role="alert">{learnError}</div>}
+
+            <QuestionReview
+              review={review}
+              loadingIndex={learnLoadingIndex}
+              onLearnAgain={learnAgain}
+              hideLearnAgain={mode === "graphical"}
+            />
+
+            {showLearnResult && learnQuestions.length > 0 && (
+              <LearnAgainResult
+                score={learnScore}
+                review={learnReview}
+              />
+            )}
+
+            <button className="primary result-next" onClick={startOriginal}>Try Original Question</button>
+          </motion.div>
+        )}
+
+        {stage === "learnAgain" && learnQuestions[learnCurrent] && (
+          <motion.div key={`learn-${learnCurrent}`} initial={{ opacity: 0, x: 55, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -55, scale: 0.98 }} transition={{ type: "spring", stiffness: 120, damping: 20 }}>
+          <Quiz
+            question={learnQuestions[learnCurrent]}
+            current={learnCurrent}
+            total={learnQuestions.length}
+            progress={learnProgress}
+            selected={learnAnswers[learnCurrent] ?? null}
+            showHint={showHint}
+            learnAgain
+            onSelect={chooseLearnAnswer}
+            onHint={() => setShowHint(true)}
+            onNext={nextLearnQuestion}
+            onPrevious={() => {
+              if (learnCurrent > 0) {
+                setLearnCurrent((value) => value - 1);
+                setShowHint(false);
+              } else {
+                setStage("result");
+              }
+            }}
+          />
+          </motion.div>
+        )}
+
+        {stage === "original" && originalQuestion && (
+          <motion.div key="original" initial={{ opacity: 0, scale: 0.96, y: 25 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 1.03 }} transition={{ type: "spring", stiffness: 110, damping: 18 }}>
+          <Quiz
+            question={originalQuestion}
+            current={0}
+            total={1}
+            progress={100}
+            selected={finalAnswer}
+            showHint={showHint}
+            finalQuestion
+            onSelect={setFinalAnswer}
+            onHint={() => setShowHint(true)}
+            onNext={submitOriginal}
+            onPrevious={() => setStage("result")}
+          />
+          </motion.div>
+        )}
+
+        {stage === "evaluation" && originalQuestion && finalAnswer != null && (
+          <motion.div key="evaluation" className="result-card final-result" initial={{ opacity: 0, scale: 0.82, y: 35 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ type: "spring", stiffness: 120, damping: 16 }}>
+            {finalAnswer === originalQuestion.correct_option ? (
+              <>
+                <div className="result-icon correct-icon">&#10003;</div>
+                <h1>Correct! </h1>
+                <p>
+                  Correct answer:{" "}
+                  <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
+                </p>
+                <p>You understood the concept.</p>
+              </>
+            ) : (
+              <>
+                <div className="result-icon incorrect-icon">&#215;</div>
+                <h1>Not quite.</h1>
+                <p>
+                  Correct answer:{" "}
+                  <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
+                </p>
+                <p>Review the concept and try again.</p>
+              </>
+            )}
+            {originalQuestion.solution && (
+              <div className="solution-block">
+                <div className="solution-label">Solution</div>
+                <p>{originalQuestion.solution}</p>
+              </div>
+            )}
+            <button className="primary" onClick={newChat}>Start New Chat</button>
+          </motion.div>
+        )}
+
+        {stage === "history_view" && currentHistoryDetail && (
+          <motion.div key="history" className="result-page history-result" initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45 }}>
+            <div className="result-card">
+              <span className="eyebrow">History Entry</span>
+              <h1>Quiz Result</h1>
+              <div className="score">{currentHistoryDetail.score}</div>
+              <div className="progress-track" aria-label="Score display">
+                <div style={{ width: `${(() => {
+                  const parts = currentHistoryDetail.score.split('/');
+                  return parts.length === 2 ? Math.round((parseInt(parts[0]) / parseInt(parts[1])) * 100) : 0;
+                })()}%` }} />
+              </div>
+              <p>{(() => {
+                const parts = currentHistoryDetail.score.split('/');
+                return parts.length === 2 ? Math.round((parseInt(parts[0]) / parseInt(parts[1])) * 100) : 0;
+              })()}% Correct</p>
+            </div>
+
+            <HistoryReview historyDetail={currentHistoryDetail} />
+
+            <button className="primary result-next" onClick={newChat}>Back to Home</button>
+          </motion.div>
+        )}
+                {stage === "workspace" && (
+          <WorkspacePanel
+            user={user}
+            onBack={() => setStage("home")}
+          />
+        )}
+</AnimatePresence>
+      </main>
+    </div>
+  );
+}
+
+function WorkspacePanel({
+  user,
+  onBack,
+}: {
+  user: User;
+  onBack: () => void;
+}) {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [selectedWorkspace, setSelectedWorkspace] =
+    useState<Workspace | null>(null);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
+  const [questions, setQuestions] = useState<WorkspaceQuestion[]>([]);
+  const [selectedQuestion, setSelectedQuestion] =
+    useState<WorkspaceQuestion | null>(null);
+  const [attempts, setAttempts] = useState<WorkspaceAttempt[]>([]);
+  const [invitations, setInvitations] =
+    useState<WorkspaceInvitation[]>([]);
+
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [questionText, setQuestionText] = useState("");
+  const [questionType, setQuestionType] = useState("solver");
+  const [visibility, setVisibility] = useState("public");
+  const [followUp, setFollowUp] = useState("");
+
+  const [activeTab, setActiveTab] =
+    useState<"dashboard" | "questions" | "members" | "invitations">(
+      "dashboard",
+    );
+
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [solveModalOpen, setSolveModalOpen] = useState(false);
+
+  const [attemptModalOpen, setAttemptModalOpen] = useState(false);
+  const [attemptLoading, setAttemptLoading] = useState(false);
+  const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [attemptResponse, setAttemptResponse] =
+    useState<QuestionResponse | null>(null);
+  const [attemptCurrent, setAttemptCurrent] = useState(0);
+  const [attemptAnswers, setAttemptAnswers] =
+    useState<Record<number, number>>({});
+  const [attemptHint, setAttemptHint] = useState(false);
+  const [attemptFinished, setAttemptFinished] = useState(false);
+  const [attemptScore, setAttemptScore] = useState<number | null>(null);
+
+  const [solveResponse, setSolveResponse] =
+    useState<QuestionResponse | null>(null);
+
+  const isAdmin =
+    selectedWorkspace?.role === "owner" ||
+    selectedWorkspace?.role === "admin";
+
+  const canSolve =
+    isAdmin || settings?.allow_member_solving === true;
+
+  async function loadWorkspaces() {
+    setBusy(true);
+    setError("");
+
+    try {
+      const response = await getWorkspaces();
+      setWorkspaces(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load workspaces.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadWorkspace(workspaceId: number) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await getWorkspaceDetails(workspaceId);
+      const workspace = response.data as Workspace;
+
+      setSelectedWorkspace(workspace);
+
+      const [questionResponse, invitationResponse] =
+        await Promise.all([
+          getWorkspaceQuestions(workspaceId),
+          getWorkspaceInvitations(),
+        ]);
+
+      setQuestions(
+        Array.isArray(questionResponse.data)
+          ? questionResponse.data
+          : [],
+      );
+
+      setInvitations(
+        Array.isArray(invitationResponse.data)
+          ? invitationResponse.data
+          : [],
+      );
+
+      const detailedWorkspace = workspace as Workspace & {
+        members?: WorkspaceMember[];
+        settings?: WorkspaceSettings;
+      };
+
+      setMembers(detailedWorkspace.members ?? []);
+      setSettings(detailedWorkspace.settings ?? null);
+
+      setSelectedQuestion(null);
+      setSolveResponse(null);
+      setAttempts([]);
+      setQuestionModalOpen(false);
+      setSolveModalOpen(false);
+      setAttemptModalOpen(false);
+      setActiveTab("dashboard");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load workspace.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createNewWorkspace() {
+    const name = workspaceName.trim();
+
+    if (!name) return;
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await createWorkspace(name);
+      const workspace = response.data as Workspace;
+
+      setWorkspaceName("");
+      setCreateModalOpen(false);
+      setMessage("Workspace created successfully.");
+
+      await loadWorkspaces();
+
+      if (workspace?.id != null) {
+        await loadWorkspace(Number(workspace.id));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to create workspace.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function joinExistingWorkspace() {
+    const code = joinCode.trim();
+
+    if (!code) return;
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await joinWorkspace(code);
+      const workspace = response.data as Workspace;
+
+      setJoinCode("");
+      setJoinModalOpen(false);
+      setMessage("Joined workspace successfully.");
+
+      await loadWorkspaces();
+
+      if (workspace?.id != null) {
+        await loadWorkspace(Number(workspace.id));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to join workspace.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshQuestions() {
+    if (!selectedWorkspace?.id) return;
+
+    try {
+      const response = await getWorkspaceQuestions(
+        Number(selectedWorkspace.id),
+      );
+
+      setQuestions(
+        Array.isArray(response.data)
+          ? response.data
+          : [],
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load questions.",
+      );
+    }
+  }
+
+  async function createQuestion() {
+    if (!selectedWorkspace?.id || !questionText.trim()) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await createWorkspaceQuestion({
+        WorkspaceId: Number(selectedWorkspace.id),
+        Question: questionText.trim(),
+        QuestionType: questionType,
+        Visibility: visibility,
+      });
+
+      setQuestionText("");
+      setPostModalOpen(false);
+      setMessage("Question posted successfully.");
+
+      await refreshQuestions();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to create question.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openQuestion(questionId: number) {
+    if (!selectedWorkspace?.id) return;
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await getWorkspaceQuestionDetails(
+        Number(selectedWorkspace.id),
+        questionId,
+      );
+
+      setSelectedQuestion(response.data as WorkspaceQuestion);
+
+      try {
+        const attemptResponse =
+          await getWorkspaceQuestionAttempts(
+            Number(selectedWorkspace.id),
+            questionId,
+          );
+
+        setAttempts(
+          Array.isArray(attemptResponse.data)
+            ? attemptResponse.data
+            : [],
+        );
+      } catch {
+        setAttempts([]);
+      }
+
+      setAttemptFinished(false);
+      setAttemptScore(null);
+      setSolveResponse(null);
+      setQuestionModalOpen(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to open question.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function computeQuestion() {
+    if (!selectedQuestion?.question || !canSolve) return;
+
+    setAttemptLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const rawResponse = await postQuestion(
+        user.username,
+        selectedQuestion.question,
+      );
+
+      const response = validateQuestionResponse(rawResponse);
+
+      if (!response || response.is_relevant !== true) {
+        throw new Error(
+          response?.error_message ||
+            "Gemini could not process this Workspace question.",
+        );
+      }
+
+      setSolveResponse(response);
+      setQuestionModalOpen(false);
+      setSolveModalOpen(true);
+      setMessage("Gemini solution prepared.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gemini computation failed.",
+      );
+    } finally {
+      setAttemptLoading(false);
+    }
+  }
+
+  async function createAttempt() {
+    if (
+      !selectedWorkspace?.id ||
+      !selectedQuestion?.id ||
+      !canSolve
+    ) {
+      return;
+    }
+
+    setAttemptLoading(true);
+    setError("");
+    setMessage("");
+    setAttemptFinished(false);
+    setAttemptScore(null);
+    setAttemptAnswers({});
+    setAttemptCurrent(0);
+    setAttemptHint(false);
+    setAttemptResponse(null);
+
+    try {
+      const attempt = await createWorkspaceAttempt(
+        Number(selectedWorkspace.id),
+        Number(selectedQuestion.id),
+        "solver",
+        "",
+      );
+
+      const createdAttempt =
+        attempt.data as WorkspaceAttempt;
+
+      if (createdAttempt?.id != null) {
+        setAttemptId(Number(createdAttempt.id));
+      }
+
+      const rawResponse = await postQuestion(
+        user.username,
+        selectedQuestion.question,
+      );
+
+      const response = validateQuestionResponse(rawResponse);
+
+      if (!response || response.is_relevant !== true) {
+        throw new Error(
+          response?.error_message ||
+            "Gemini could not prepare this attempt.",
+        );
+      }
+
+      if (
+        !response.ai_questions ||
+        response.ai_questions.length === 0
+      ) {
+        throw new Error(
+          "Gemini did not return a usable practice session.",
+        );
+      }
+
+      setAttemptResponse(response);
+      setQuestionModalOpen(false);
+      setAttemptModalOpen(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to start the Workspace attempt.",
+      );
+    } finally {
+      setAttemptLoading(false);
+    }
+  }
+
+  function chooseWorkspaceAttemptAnswer(option: number) {
+    if (attemptFinished) return;
+
+    setAttemptAnswers((previous) => ({
+      ...previous,
+      [attemptCurrent]: option + 1,
+    }));
+  }
+
+  async function finishWorkspaceAttempt() {
+    if (
+      !selectedWorkspace?.id ||
+      attemptId == null ||
+      !attemptResponse
+    ) {
+      return;
+    }
+
+    const generatedQuestions =
+      attemptResponse.ai_questions ?? [];
+
+    const finalScore = generatedQuestions.reduce(
+      (total, item, index) =>
+        total +
+        (attemptAnswers[index] === item.correct_option
+          ? 1
+          : 0),
+      0,
+    );
+
+    setAttemptScore(finalScore);
+    setAttemptFinished(true);
+    setAttemptHint(false);
+
+    try {
+      await completeWorkspaceAttempt(
+        Number(selectedWorkspace.id),
+        Number(attemptId),
+        JSON.stringify(attemptAnswers),
+        finalScore,
+        true,
+      );
+
+      if (selectedQuestion?.id != null) {
+        const response =
+          await getWorkspaceQuestionAttempts(
+            Number(selectedWorkspace.id),
+            Number(selectedQuestion.id),
+          );
+
+        setAttempts(
+          Array.isArray(response.data)
+            ? response.data
+            : [],
+        );
+      }
+
+      setMessage("Attempt completed and recorded.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "The result was shown, but the attempt could not be recorded.",
+      );
+    }
+  }
+
+  function nextWorkspaceAttemptQuestion() {
+    if (!attemptResponse || attemptFinished) return;
+
+    const total = attemptResponse.ai_questions.length;
+
+    if (attemptAnswers[attemptCurrent] == null) {
+      return;
+    }
+
+    if (attemptCurrent >= total - 1) {
+      void finishWorkspaceAttempt();
+      return;
+    }
+
+    setAttemptHint(false);
+    setAttemptCurrent((current) => current + 1);
+  }
+
+  async function sendFollowUp() {
+    if (
+      !selectedWorkspace?.id ||
+      !selectedQuestion?.id ||
+      !attemptFinished ||
+      !followUp.trim()
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await postWorkspaceQuestionFollowUp(
+        Number(selectedWorkspace.id),
+        Number(selectedQuestion.id),
+        followUp.trim(),
+      );
+
+      setFollowUp("");
+      setMessage("Follow-up question submitted.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to submit follow-up.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendInvitation() {
+    if (
+      !selectedWorkspace?.id ||
+      !inviteUsername.trim()
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await inviteToWorkspace(
+        Number(selectedWorkspace.id),
+        inviteUsername.trim(),
+      );
+
+      setInviteUsername("");
+      setInviteModalOpen(false);
+      setMessage("Invitation sent.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to send invitation.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAcceptInvitation(id: number) {
+    setBusy(true);
+    setError("");
+
+    try {
+      await acceptWorkspaceInvitation(id);
+
+      const response =
+        await getWorkspaceInvitations();
+
+      setInvitations(
+        Array.isArray(response.data)
+          ? response.data
+          : [],
+      );
+
+      await loadWorkspaces();
+      setMessage("Invitation accepted.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to accept invitation.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDeclineInvitation(id: number) {
+    setBusy(true);
+    setError("");
+
+    try {
+      await declineWorkspaceInvitation(id);
+
+      const response =
+        await getWorkspaceInvitations();
+
+      setInvitations(
+        Array.isArray(response.data)
+          ? response.data
+          : [],
+      );
+
+      setMessage("Invitation declined.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to decline invitation.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function leaveCurrentWorkspace() {
+    if (!selectedWorkspace?.id) return;
+
+    setBusy(true);
+    setError("");
+
+    try {
+      await leaveWorkspace(
+        Number(selectedWorkspace.id),
+      );
+
+      setSelectedWorkspace(null);
+      setQuestions([]);
+      setMembers([]);
+      setSettings(null);
+      setSelectedQuestion(null);
+      setAttempts([]);
+      setQuestionModalOpen(false);
+      setSolveModalOpen(false);
+      setAttemptModalOpen(false);
+
+      await loadWorkspaces();
+      setMessage("You left the workspace.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to leave workspace.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadWorkspaces();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWorkspace?.id) return;
+
+    const workspace = selectedWorkspace as Workspace & {
+      members?: WorkspaceMember[];
+      settings?: WorkspaceSettings;
+    };
+
+    if (workspace.members) {
+      setMembers(workspace.members);
+    }
+
+    if (workspace.settings) {
+      setSettings(workspace.settings);
+    }
+  }, [selectedWorkspace]);
+
+
+  return (
+    <motion.div
+      className="workspace-page workspace-v4"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+    >
+      <div className="workspace-header">
+        <div>
+          <span className="eyebrow">COLLABORATIVE LEARNING</span>
+          <h1>Workspaces</h1>
+          <p>
+            Work through computational problems together
+            with online solving and guided attempts.
+          </p>
+        </div>
+
+        <div className="workspace-header-actions">
+          <span className="workspace-online-badge">
+            <i />
+            Online Ã‚Â· Gemini
+          </span>
+
+          <button
+            type="button"
+            className="secondary"
+            onClick={onBack}
+          >
+            Back to Solver
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error review-error workspace-alert">
+          {error}
+        </div>
+      )}
+
+      {message && (
+        <div className="workspace-message workspace-alert">
+          {message}
+        </div>
+      )}
+
+      {!selectedWorkspace ? (
+        <div className="workspace-landing-grid">
+          <section className="workspace-hero-card">
+            <div className="workspace-hero-mark">
+              W
+            </div>
+
+            <span className="eyebrow">
+              YOUR COLLABORATION SPACE
+            </span>
+
+            <h2>
+              Learn, solve and collaborate
+              <br />
+              in one place.
+            </h2>
+
+            <p>
+              Create a private workspace or join one using
+              an invitation code. Questions, attempts and
+              progress stay organised inside the workspace.
+            </p>
+
+            <div className="workspace-hero-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setCreateModalOpen(true)}
+              >
+                Create Workspace
+              </button>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setJoinModalOpen(true)}
+              >
+                Join Workspace
+              </button>
+            </div>
+          </section>
+
+          <section className="workspace-list-card workspace-v4-card">
+            <div className="workspace-card-header">
+              <div>
+                <span className="eyebrow">SPACES</span>
+                <h2>Your Workspaces</h2>
+                <span>
+                  {workspaces.length} active
+                  {workspaces.length === 1
+                    ? " workspace"
+                    : " workspaces"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="secondary workspace-icon-button"
+                onClick={() => void loadWorkspaces()}
+                disabled={busy}
+                aria-label="Refresh workspaces"
+              >
+                Ã¢â€ Â»
+              </button>
+            </div>
+
+            <div className="workspace-list workspace-v4-list">
+              {workspaces.length === 0 ? (
+                <div className="workspace-empty workspace-empty-large">
+                  <div className="workspace-empty-icon">
+                    W
+                  </div>
+                  <strong>No workspaces yet</strong>
+                  <span>
+                    Create one or join an existing workspace
+                    to get started.
+                  </span>
+                </div>
+              ) : (
+                workspaces.map((workspace) => (
+                  <button
+                    type="button"
+                    key={workspace.id}
+                    className="workspace-list-item workspace-v4-list-item"
+                    onClick={() =>
+                      void loadWorkspace(
+                        Number(workspace.id),
+                      )
+                    }
+                  >
+                    <span className="workspace-list-icon">
+                      {String(workspace.name || "W")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase() || "W"}
+                    </span>
+
+                    <span className="workspace-list-copy">
+                      <strong>{workspace.name}</strong>
+                      <small>
+                        {workspace.role ?? "member"}
+                      </small>
+                    </span>
+
+                    <span className="workspace-list-arrow">
+                      Ã¢â€ â€™
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="workspace-shell workspace-v4-shell">
+          <aside className="workspace-sidebar workspace-v4-sidebar">
+            <div className="workspace-sidebar-heading">
+              <span className="workspace-list-icon">
+                {String(selectedWorkspace.name || "W")
+                  .trim()
+                  .charAt(0)
+                  .toUpperCase() || "W"}
+              </span>
+
+              <div>
+                <strong>{selectedWorkspace.name}</strong>
+                <small>
+                  {selectedWorkspace.role ?? "member"}
+                </small>
+              </div>
+            </div>
+
+            <div className="workspace-sidebar-status">
+              <span className="workspace-status-dot" />
+              Online Ã‚Â· Gemini
+            </div>
+
+            <nav className="workspace-sidebar-nav">
+              {(
+                [
+                  ["dashboard", "Overview"],
+                  ["questions", "Questions"],
+                  ["members", "Members"],
+                  ["invitations", "Invitations"],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  type="button"
+                  key={tab}
+                  className={
+                    activeTab === tab ? "active" : ""
+                  }
+                  onClick={() => setActiveTab(tab)}
+                >
+                  <span>
+                    {tab === "dashboard"
+                      ? "Ã¢Å’â€š"
+                      : tab === "questions"
+                        ? "?"
+                        : tab === "members"
+                          ? "Ã¢â€”Å½"
+                          : "Ã¢Å“â€°"}
+                  </span>
+                  {label}
+                  {tab === "questions" && (
+                    <small>{questions.length}</small>
+                  )}
+                  {tab === "members" && (
+                    <small>{members.length}</small>
+                  )}
+                  {tab === "invitations" &&
+                    invitations.length > 0 && (
+                      <small>{invitations.length}</small>
+                    )}
+                </button>
+              ))}
+            </nav>
+
+            <div className="workspace-sidebar-bottom">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setSettingsModalOpen(true)}
+              >
+                Settings
+              </button>
+
+              <button
+                type="button"
+                className="secondary danger-action"
+                onClick={() =>
+                  void leaveCurrentWorkspace()
+                }
+                disabled={busy}
+              >
+                Leave Workspace
+              </button>
+            </div>
+          </aside>
+
+          <main className="workspace-main workspace-v4-main">
+            {activeTab === "dashboard" && (
+              <div className="workspace-dashboard workspace-v4-dashboard">
+                <div className="workspace-dashboard-heading">
+                  <div>
+                    <span className="eyebrow">
+                      WORKSPACE OVERVIEW
+                    </span>
+                    <h2>Ready to work?</h2>
+                    <p>
+                      Pick a question, solve it online,
+                      or start a guided attempt.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setActiveTab("questions")}
+                  >
+                    Browse Questions
+                  </button>
+                </div>
+
+                <div className="workspace-stat-grid workspace-v4-stats">
+                  <div className="workspace-stat">
+                    <span>Questions</span>
+                    <strong>{questions.length}</strong>
+                    <small>Posted in this workspace</small>
+                  </div>
+
+                  <div className="workspace-stat">
+                    <span>Members</span>
+                    <strong>{members.length}</strong>
+                    <small>People collaborating</small>
+                  </div>
+
+                  <div className="workspace-stat">
+                    <span>Invitations</span>
+                    <strong>{invitations.length}</strong>
+                    <small>Waiting for response</small>
+                  </div>
+
+                  <div className="workspace-stat">
+                    <span>Solver</span>
+                    <strong>Gemini</strong>
+                    <small>Online computation</small>
+                  </div>
+                </div>
+
+                <div className="workspace-command-grid">
+                  <button
+                    type="button"
+                    className="workspace-command-card"
+                    onClick={() => {
+                      setActiveTab("questions");
+                      setPostModalOpen(true);
+                    }}
+                  >
+                    <span>+</span>
+                    <strong>Post a Question</strong>
+                    <small>
+                      Add a problem for the workspace.
+                    </small>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="workspace-command-card"
+                    onClick={() => setActiveTab("questions")}
+                  >
+                    <span>?</span>
+                    <strong>Open Questions</strong>
+                    <small>
+                      Browse and attempt workspace problems.
+                    </small>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="workspace-command-card"
+                    onClick={() => setInviteModalOpen(true)}
+                  >
+                    <span>+</span>
+                    <strong>Invite Member</strong>
+                    <small>
+                      Bring another user into the workspace.
+                    </small>
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="workspace-command-card"
+                      onClick={() =>
+                        setSettingsModalOpen(true)
+                      }
+                    >
+                      <span>Ã¢Å¡â„¢</span>
+                      <strong>Workspace Controls</strong>
+                      <small>
+                        Decide who can post and solve.
+                      </small>
+                    </button>
+                  )}
+                </div>
+
+                <div className="workspace-recent-card">
+                  <div className="workspace-card-header">
+                    <div>
+                      <span className="eyebrow">
+                        RECENT QUESTIONS
+                      </span>
+                      <h3>Continue learning</h3>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        setActiveTab("questions")
+                      }
+                    >
+                      View all
+                    </button>
+                  </div>
+
+                  {questions.length === 0 ? (
+                    <div className="workspace-empty">
+                      No questions have been posted yet.
+                    </div>
+                  ) : (
+                    <div className="workspace-recent-list">
+                      {questions.slice(0, 4).map((question) => (
+                        <button
+                          type="button"
+                          className="workspace-recent-item"
+                          key={question.id}
+                          onClick={() =>
+                            void openQuestion(
+                              Number(question.id),
+                            )
+                          }
+                        >
+                          <span className="workspace-question-number">
+                            Q
+                          </span>
+
+                          <span>
+                            <strong>
+                              {question.question}
+                            </strong>
+                            <small>
+                              {question.question_type ??
+                                "solver"}{" "}
+                              Ã‚Â·{" "}
+                              {question.visibility ??
+                                "public"}
+                            </small>
+                          </span>
+
+                          <b>Ã¢â€ â€™</b>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "questions" && (
+              <div className="workspace-question-browser">
+                <div className="workspace-section-heading">
+                  <div>
+                    <span className="eyebrow">
+                      PROBLEM SET
+                    </span>
+                    <h2>Workspace Questions</h2>
+                    <p>
+                      Select a problem to open its workspace
+                      window.
+                    </p>
+                  </div>
+
+                  <div className="workspace-section-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => void refreshQuestions()}
+                      disabled={busy}
+                    >
+                      Refresh
+                    </button>
+
+                    {settings?.allow_member_posting ||
+                      isAdmin ? (
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() =>
+                          setPostModalOpen(true)
+                        }
+                      >
+                        Post Question
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {questions.length === 0 ? (
+                  <div className="workspace-empty workspace-empty-large">
+                    <div className="workspace-empty-icon">
+                      ?
+                    </div>
+                    <strong>No questions yet</strong>
+                    <span>
+                      Questions posted to this workspace
+                      will appear here.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="workspace-question-grid workspace-v4-question-grid">
+                    {questions.map((question, index) => (
+                      <button
+                        type="button"
+                        className="workspace-problem-card workspace-v4-problem-card"
+                        key={question.id}
+                        onClick={() =>
+                          void openQuestion(
+                            Number(question.id),
+                          )
+                        }
+                      >
+                        <div className="workspace-problem-topline">
+                          <span>
+                            {String(index + 1).padStart(
+                              2,
+                              "0",
+                            )}
+                          </span>
+
+                          <span>
+                            {question.question_type ??
+                              "solver"}
+                          </span>
+                        </div>
+
+                        <h3>{question.question}</h3>
+
+                        <div className="workspace-problem-footer">
+                          <span>
+                            {question.visibility ??
+                              "public"}
+                          </span>
+                          <b>Open Ã¢â€ â€™</b>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "members" && (
+              <div className="workspace-members workspace-v4-members">
+                <div className="workspace-section-heading">
+                  <div>
+                    <span className="eyebrow">
+                      COLLABORATORS
+                    </span>
+                    <h2>Members</h2>
+                    <p>
+                      Manage the people participating in
+                      this workspace.
+                    </p>
+                  </div>
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        setInviteModalOpen(true)
+                      }
+                    >
+                      Invite Member
+                    </button>
+                  )}
+                </div>
+
+                <div className="workspace-member-list">
+                  {members.length === 0 ? (
+                    <div className="workspace-empty">
+                      Member details are not available yet.
+                    </div>
+                  ) : (
+                    members.map((member) => (
+                      <div
+                        className="workspace-member-item workspace-v4-member-item"
+                        key={String(
+                          member.id ??
+                            member.user_id ??
+                            member.username ??
+                            "member",
+                        )}
+                      >
+                        <span className="workspace-member-avatar">
+                          {String(
+                            member.username ??
+                              member.user_id ??
+                              "U",
+                          )
+                            .trim()
+                            .charAt(0)
+                            .toUpperCase()}
+                        </span>
+
+                        <div>
+                          <strong>
+                            {member.username ??
+                              `User ${member.user_id}`}
+                          </strong>
+                          <span>
+                            {member.role ?? "member"}
+                          </span>
+                        </div>
+
+                        {isAdmin &&
+                          member.username &&
+                          member.role !== "owner" &&
+                          member.role !== "admin" && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={async () => {
+                                if (
+                                  !selectedWorkspace?.id ||
+                                  !member.username
+                                ) {
+                                  return;
+                                }
+
+                                try {
+                                  await promoteWorkspaceMember(
+                                    Number(
+                                      selectedWorkspace.id,
+                                    ),
+                                    member.username,
+                                  );
+
+                                  await loadWorkspace(
+                                    Number(
+                                      selectedWorkspace.id,
+                                    ),
+                                  );
+
+                                  setMessage(
+                                    `${member.username} promoted.`,
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Unable to promote member.",
+                                  );
+                                }
+                              }}
+                              disabled={busy}
+                            >
+                              Promote
+                            </button>
+                          )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "invitations" && (
+              <div className="workspace-invitations workspace-v4-invitations">
+                <div className="workspace-section-heading">
+                  <div>
+                    <span className="eyebrow">
+                      INCOMING
+                    </span>
+                    <h2>Invitations</h2>
+                    <p>
+                      Workspace invitations waiting for
+                      your response.
+                    </p>
+                  </div>
+                </div>
+
+                {invitations.length === 0 ? (
+                  <div className="workspace-empty workspace-empty-large">
+                    <div className="workspace-empty-icon">
+                      Ã¢Å“â€°
+                    </div>
+                    <strong>No pending invitations</strong>
+                    <span>
+                      New workspace invitations will appear
+                      here.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="workspace-invitation-list">
+                    {invitations.map((invitation) => (
+                      <div
+                        className="workspace-invitation-item workspace-v4-invitation-item"
+                        key={invitation.id}
+                      >
+                        <div>
+                          <span className="eyebrow">
+                            WORKSPACE INVITATION
+                          </span>
+                          <strong>
+                            {invitation.workspace_name ??
+                              "Workspace"}
+                          </strong>
+                          <span>
+                            Invited by{" "}
+                            {String(
+                              invitation.invited_username ??
+                                invitation.invited_by ??
+                                "workspace member",
+                            )}
+                          </span>
+                        </div>
+
+                        {invitation.id != null && (
+                          <div className="workspace-invitation-actions">
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() =>
+                                void handleAcceptInvitation(
+                                  Number(invitation.id),
+                                )
+                              }
+                              disabled={busy}
+                            >
+                              Accept
+                            </button>
+
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() =>
+                                void handleDeclineInvitation(
+                                  Number(invitation.id),
+                                )
+                              }
+                              disabled={busy}
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+      )}
+
+      <div className="workspace-user">
+        Signed in as <strong>{user.username}</strong>
+      </div>
+
+      <AnimatePresence>
+        {(createModalOpen ||
+          joinModalOpen ||
+          postModalOpen ||
+          inviteModalOpen ||
+          settingsModalOpen) && (
+          <motion.div
+            className="workspace-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.target !== event.currentTarget) {
+                return;
+              }
+
+              setCreateModalOpen(false);
+              setJoinModalOpen(false);
+              setPostModalOpen(false);
+              setInviteModalOpen(false);
+              setSettingsModalOpen(false);
+            }}
+          >
+            <motion.div
+              className="workspace-modal workspace-v4-modal"
+              initial={{ opacity: 0, y: 24, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            >
+              <div className="workspace-modal-header">
+                <div>
+                  <span className="eyebrow">
+                    {createModalOpen
+                      ? "NEW SPACE"
+                      : joinModalOpen
+                        ? "JOIN"
+                        : postModalOpen
+                          ? "NEW QUESTION"
+                          : inviteModalOpen
+                            ? "INVITE"
+                            : "WORKSPACE CONTROLS"}
+                  </span>
+
+                  <h2>
+                    {createModalOpen
+                      ? "Create a workspace"
+                      : joinModalOpen
+                        ? "Join a workspace"
+                        : postModalOpen
+                          ? "Post a question"
+                          : inviteModalOpen
+                            ? "Invite a member"
+                            : "Workspace settings"}
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  className="workspace-modal-close"
+                  onClick={() => {
+                    setCreateModalOpen(false);
+                    setJoinModalOpen(false);
+                    setPostModalOpen(false);
+                    setInviteModalOpen(false);
+                    setSettingsModalOpen(false);
+                  }}
+                >
+                  Ãƒâ€”
+                </button>
+              </div>
+
+              {createModalOpen && (
+                <div className="workspace-modal-body">
+                  <p className="workspace-modal-description">
+                    Create a dedicated space for questions,
+                    guided attempts and collaboration.
+                  </p>
+
+                  <label className="workspace-field">
+                    <span>Workspace name</span>
+                    <input
+                      autoFocus
+                      value={workspaceName}
+                      onChange={(event) =>
+                        setWorkspaceName(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="e.g. Mathematics Lab"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void createNewWorkspace();
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <div className="workspace-modal-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        setCreateModalOpen(false)
+                      }
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        void createNewWorkspace()
+                      }
+                      disabled={
+                        busy || !workspaceName.trim()
+                      }
+                    >
+                      Create Workspace
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {joinModalOpen && (
+                <div className="workspace-modal-body">
+                  <p className="workspace-modal-description">
+                    Enter the join code shared by the
+                    workspace owner or administrator.
+                  </p>
+
+                  <label className="workspace-field">
+                    <span>Join code</span>
+                    <input
+                      autoFocus
+                      value={joinCode}
+                      onChange={(event) =>
+                        setJoinCode(event.target.value)
+                      }
+                      placeholder="Enter join code"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void joinExistingWorkspace();
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <div className="workspace-modal-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        setJoinModalOpen(false)
+                      }
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        void joinExistingWorkspace()
+                      }
+                      disabled={
+                        busy || !joinCode.trim()
+                      }
+                    >
+                      Join Workspace
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {postModalOpen && (
+                <div className="workspace-modal-body">
+                  <p className="workspace-modal-description">
+                    Add a computational problem for members
+                    of this workspace.
+                  </p>
+
+                  <label className="workspace-field">
+                    <span>Question</span>
+                    <textarea
+                      autoFocus
+                      value={questionText}
+                      onChange={(event) =>
+                        setQuestionText(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Enter the computational problem..."
+                      rows={6}
+                    />
+                  </label>
+
+                  <div className="workspace-field-grid">
+                    <label className="workspace-field">
+                      <span>Type</span>
+                      <select
+                        value={questionType}
+                        onChange={(event) =>
+                          setQuestionType(
+                            event.target.value,
+                          )
+                        }
+                      >
+                        <option value="solver">
+                          Solver
+                        </option>
+                        <option value="assessment">
+                          Assessment
+                        </option>
+                        <option value="mcq">
+                          MCQ
+                        </option>
+                      </select>
+                    </label>
+
+                    <label className="workspace-field">
+                      <span>Visibility</span>
+                      <select
+                        value={visibility}
+                        onChange={(event) =>
+                          setVisibility(
+                            event.target.value,
+                          )
+                        }
+                      >
+                        <option value="public">
+                          Public
+                        </option>
+                        <option value="private">
+                          Private
+                        </option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="workspace-modal-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        setPostModalOpen(false)
+                      }
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        void createQuestion()
+                      }
+                      disabled={
+                        busy || !questionText.trim()
+                      }
+                    >
+                      Post Question
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {inviteModalOpen && (
+                <div className="workspace-modal-body">
+                  <p className="workspace-modal-description">
+                    Invite another Nova user by username.
+                  </p>
+
+                  <label className="workspace-field">
+                    <span>Username</span>
+                    <input
+                      autoFocus
+                      value={inviteUsername}
+                      onChange={(event) =>
+                        setInviteUsername(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Username"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void sendInvitation();
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <div className="workspace-modal-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        setInviteModalOpen(false)
+                      }
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        void sendInvitation()
+                      }
+                      disabled={
+                        busy || !inviteUsername.trim()
+                      }
+                    >
+                      Send Invitation
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {settingsModalOpen && selectedWorkspace && (
+                <WorkspaceSettingsPanel
+                  workspace={selectedWorkspace}
+                  settings={settings}
+                  enabled={isAdmin}
+                  busy={busy}
+                  onSaved={(nextSettings) => {
+                    setSettings(nextSettings);
+                    setSettingsModalOpen(false);
+                    setMessage(
+                      "Workspace settings updated.",
+                    );
+                  }}
+                  onError={setError}
+                />
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+
+        {questionModalOpen && selectedQuestion && (
+          <motion.div
+            className="workspace-modal-overlay workspace-question-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="workspace-modal workspace-question-window"
+              initial={{ opacity: 0, y: 28, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            >
+              <div className="workspace-modal-header">
+                <div>
+                  <span className="eyebrow">
+                    WORKSPACE QUESTION
+                  </span>
+                  <h2>Problem workspace</h2>
+                </div>
+
+                <button
+                  type="button"
+                  className="workspace-modal-close"
+                  onClick={() =>
+                    setQuestionModalOpen(false)
+                  }
+                >
+                  Ãƒâ€”
+                </button>
+              </div>
+
+              <div className="workspace-question-window-body">
+                <div className="workspace-question-prompt">
+
+                  <div className="workspace-question-plain-text">
+                  {selectedQuestion.question}
+                </div>
+                </div>
+
+                <div className="workspace-gemini-panel">
+                  <div>
+                    <span className="workspace-gemini-icon">
+                      G
+                    </span>
+                    <div>
+                      <strong>
+                        Online Solver
+                      </strong>
+                      <small>
+                        Guided practice and computational
+                        assistance
+                      </small>
+                    </div>
+                  </div>
+
+                  <div className="workspace-question-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => void createAttempt()}
+                      disabled={
+                        busy ||
+                        attemptLoading 
+                        
+                      }
+                    >
+                      {attemptLoading
+                        ? "Preparing..."
+                        : "Start Attempt"}
+                    </button>
+
+                    {canSolve && (
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() =>
+                          void computeQuestion()
+                        }
+                        disabled={
+                          busy || attemptLoading
+                        }
+                      >
+                        {attemptLoading
+                          ? "Thinking..."
+                          : "Solve"}
+                      </button>
+                    )}
+                  </div>
+
+                  {!canSolve && (
+                    <small className="workspace-permission-note">
+                      Solving is currently disabled for
+                      workspace members by the owner/admin.
+                    </small>
+                  )}
+                </div>
+
+                <div className="workspace-attempt-summary">
+                  <div>
+                    <span className="eyebrow">
+                      ATTEMPTS
+                    </span>
+                    <strong>
+                      {attempts.length}
+                    </strong>
+                    <small>recorded</small>
+                  </div>
+
+                  <div>
+                    <span className="eyebrow">
+                      FOLLOW-UP
+                    </span>
+                    <strong>
+                      {attemptFinished
+                        ? "Available"
+                        : "Locked"}
+                    </strong>
+                    <small>
+                      {attemptFinished
+                        ? "Attempt completed"
+                        : "Complete an attempt first"}
+                    </small>
+                  </div>
+                </div>
+
+                {attemptFinished && (
+                  <div className="workspace-follow-up workspace-v4-follow-up">
+                    <div>
+                      <span className="eyebrow">
+                        AFTER YOUR ATTEMPT
+                      </span>
+                      <h3>Ask a follow-up</h3>
+                    </div>
+
+                    <textarea
+                      value={followUp}
+                      onChange={(event) =>
+                        setFollowUp(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Ask about the method, a step, or a related idea..."
+                      rows={3}
+                    />
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        void sendFollowUp()
+                      }
+                      disabled={
+                        busy || !followUp.trim()
+                      }
+                    >
+                      Ask Follow-up
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {solveModalOpen && solveResponse && (
+          <motion.div
+            className="workspace-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="workspace-modal workspace-solve-window"
+              initial={{ opacity: 0, y: 28, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            >
+              <div className="workspace-modal-header">
+                <div>
+                  <span className="eyebrow">
+                    SOLUTION
+                  </span>
+                  <h2>
+                    Guided solution session
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  className="workspace-modal-close"
+                  onClick={() =>
+                    setSolveModalOpen(false)
+                  }
+                >
+                  Ãƒâ€”
+                </button>
+              </div>
+
+              <div className="workspace-solution-content">
+                {solveResponse.user_question && (
+                  <section className="workspace-solution-primary">
+                    <span className="eyebrow">
+                      ORIGINAL QUESTION
+                    </span>
+
+                    <div className="workspace-solution-question">
+                      <MathText>
+                        {
+                          solveResponse.user_question
+                            .question
+                        }
+                      </MathText>
+                    </div>
+
+                    <div className="workspace-solution-options">
+                      {solveResponse.user_question.options.map(
+                        (option, index) => (
+                          <div
+                            className={`workspace-solution-option ${
+                              index ===
+                              solveResponse.user_question
+                                .correct_option
+                                ? "correct"
+                                : ""
+                            }`}
+                            key={index}
+                          >
+                            <span>
+                              {String.fromCharCode(
+                                65 + index,
+                              )}
+                            </span>
+                            <MathText>
+                              {option}
+                            </MathText>
+                          </div>
+                        ),
+                      )}
+                    </div>
+
+                    {solveResponse.user_question.hint && (
+                      <div className="workspace-solution-hint">
+                        <strong>Explanation</strong>
+                        <p>
+                          {
+                            solveResponse.user_question
+                              .hint
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {solveResponse.ai_questions.length > 0 && (
+                  <section>
+                    <div className="workspace-solution-section-heading">
+                      <span className="eyebrow">
+                        GENERATED PRACTICE
+                      </span>
+                      <h3>
+                        Build your understanding
+                      </h3>
+                      <p>
+                        Generated guided
+                        questions from the original problem.
+                      </p>
+                    </div>
+
+                    <div className="workspace-generated-question-list">
+                      {solveResponse.ai_questions.map(
+                        (item, questionIndex) => (
+                          <div
+                            className="workspace-generated-question"
+                            key={questionIndex}
+                          >
+                            <div className="workspace-generated-number">
+                              {String(
+                                questionIndex + 1,
+                              ).padStart(2, "0")}
+                            </div>
+
+                            <div>
+                              <strong>
+                                <MathText>
+                                  {item.question}
+                                </MathText>
+                              </strong>
+
+                              <div className="workspace-solution-options">
+                                {item.options.map(
+                                  (option, index) => (
+                                    <div
+                                      className={`workspace-solution-option ${
+                                        index ===
+                                        item.correct_option
+                                          ? "correct"
+                                          : ""
+                                      }`}
+                                      key={index}
+                                    >
+                                      <span>
+                                        {String.fromCharCode(
+                                          65 + index,
+                                        )}
+                                      </span>
+                                      <MathText>
+                                        {option}
+                                      </MathText>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+
+                              {item.hint && (
+                                <div className="workspace-solution-hint">
+                                  <strong>
+                                    Hint
+                                  </strong>
+                                  <p>{item.hint}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                <div className="workspace-solution-footer">
+                  <span>
+                    Gemini Ã‚Â· Online
+                  </span>
+
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setSolveModalOpen(false);
+                      setQuestionModalOpen(true);
+                    }}
+                  >
+                    Return to Question
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {attemptModalOpen && attemptResponse && (
+          <motion.div
+            className="workspace-modal-overlay workspace-attempt-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="workspace-modal workspace-attempt-window workspace-v4-attempt-window"
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            >
+              <div className="workspace-attempt-window-header">
+                <div>
+                  <span className="eyebrow">
+                    GEMINI Ã‚Â· GUIDED ATTEMPT
+                  </span>
+
+                  <h2>
+                    {attemptFinished
+                      ? "Attempt complete"
+                      : "Work through the problem"}
+                  </h2>
+                </div>
+
+                {attemptFinished && (
+                  <button
+                    type="button"
+                    className="workspace-modal-close"
+                    onClick={() => {
+                      setAttemptModalOpen(false);
+                      setQuestionModalOpen(true);
+                    }}
+                  >
+                    Ãƒâ€”
+                  </button>
+                )}
+              </div>
+
+              {attemptFinished ? (
+                <div className="workspace-attempt-finished workspace-v4-attempt-finished">
+                  <div className="workspace-score-orb">
+                    {attemptScore}
+                  </div>
+
+                  <span className="eyebrow">
+                    RECORDED RESULT
+                  </span>
+
+                  <h3>
+                    {attemptScore ===
+                    attemptResponse.ai_questions.length
+                      ? "Excellent work."
+                      : "Attempt completed."}
+                  </h3>
+
+                  <p>
+                    You scored{" "}
+                    <strong>
+                      {attemptScore} /{" "}
+                      {attemptResponse.ai_questions.length}
+                    </strong>
+                    .
+                  </p>
+
+                  <div className="workspace-finished-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setAttemptModalOpen(false);
+                        setQuestionModalOpen(true);
+                      }}
+                    >
+                      Review Question
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        setAttemptModalOpen(false)
+                      }
+                    >
+                      Return to Workspace
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {attemptResponse.ai_questions[
+                    attemptCurrent
+                  ] && (
+                    <>
+                      <div className="workspace-attempt-progress">
+                        <div>
+                          <span>
+                            Question{" "}
+                            {attemptCurrent + 1}
+                          </span>
+                          <small>
+                            of{" "}
+                            {
+                              attemptResponse
+                                .ai_questions.length
+                            }
+                          </small>
+                        </div>
+
+                        <div className="workspace-attempt-progress-track">
+                          <i
+                            style={{
+                              width: `${
+                                ((attemptCurrent + 1) /
+                                  attemptResponse
+                                    .ai_questions.length) *
+                                100
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="workspace-attempt-question workspace-v4-attempt-question">
+                        <span className="workspace-question-label">
+                          QUESTION{" "}
+                          {String(
+                            attemptCurrent + 1,
+                          ).padStart(2, "0")}
+                        </span>
+
+                        <MathText>
+                          {
+                            attemptResponse
+                              .ai_questions[
+                              attemptCurrent
+                            ].question
+                          }
+                        </MathText>
+                      </div>
+
+                      <div className="workspace-v4-attempt-options">
+                        {attemptResponse.ai_questions[
+                          attemptCurrent
+                        ].options.map(
+                          (option, index) => {
+                            const selected =
+                              attemptAnswers[
+                                attemptCurrent
+                              ] === index + 1;
+
+                            return (
+                              <button
+                                type="button"
+                                key={index}
+                                className={
+                                  selected
+                                    ? "selected"
+                                    : ""
+                                }
+                                onClick={() =>
+                                  chooseWorkspaceAttemptAnswer(
+                                    index,
+                                  )
+                                }
+                              >
+                                <span className="workspace-option-letter">
+                                  {String.fromCharCode(
+                                    65 + index,
+                                  )}
+                                </span>
+
+                                <span className="workspace-option-content">
+                                  <MathText>
+                                    {option}
+                                  </MathText>
+                                </span>
+
+                                <span className="workspace-option-check">
+                                  {selected ? "Ã¢Å“â€œ" : ""}
+                                </span>
+                              </button>
+                            );
+                          },
+                        )}
+                      </div>
+
+                      {attemptHint && (
+                        <div className="workspace-attempt-hint workspace-v4-hint">
+                          <strong>Hint</strong>
+                          <p>
+                            {
+                              attemptResponse
+                                .ai_questions[
+                                attemptCurrent
+                              ].hint
+                            }
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="workspace-attempt-window-actions">
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            setAttemptHint(
+                              (value) => !value,
+                            )
+                          }
+                        >
+                          {attemptHint
+                            ? "Hide Hint"
+                            : "Show Hint"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={
+                            attemptAnswers[
+                              attemptCurrent
+                            ] == null
+                          }
+                          onClick={
+                            nextWorkspaceAttemptQuestion
+                          }
+                        >
+                          {attemptCurrent ===
+                          attemptResponse.ai_questions
+                            .length -
+                            1
+                            ? "Finish Attempt"
+                            : "Next Question Ã¢â€ â€™"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+function WorkspaceSettingsPanel({
+  workspace,
+  settings,
+  enabled,
+  busy,
+  onSaved,
+  onError,
+}: {
+  workspace: Workspace;
+  settings: WorkspaceSettings | null;
+  enabled: boolean;
+  busy: boolean;
+  onSaved: (settings: WorkspaceSettings) => void;
+  onError: (message: string) => void;
+}) {
+  const [mode, setMode] = useState<"offline" | "online">("online");
+  const [allowPosting, setAllowPosting] = useState(
+    settings?.allow_member_posting ?? true,
+  );
+  const [allowSolving, setAllowSolving] = useState(
+    settings?.allow_member_solving ?? true,
+  );
+
+  useEffect(() => {
+    setMode("online");
+    setAllowPosting(settings?.allow_member_posting ?? true);
+    setAllowSolving(settings?.allow_member_solving ?? true);
+  }, [settings]);
+
+  async function save() {
+    if (!enabled || workspace.id == null) return;
+
+    try {
+      const response = await updateWorkspaceSettings({
+        WorkspaceId: Number(workspace.id),
+        ComputationMode: mode,
+        AllowMemberPosting: allowPosting,
+        AllowMemberSolving: allowSolving,
+      });
+
+      onSaved(response.data as WorkspaceSettings);
+    } catch (err) {
+      onError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update workspace settings.",
+      );
+    }
+  }
+
+  return (
+    <div className="workspace-settings">
+      <div className="workspace-card-header">
+        <div>
+          <h3>Workspace Settings</h3>
+          <span>
+            {enabled
+              ? "Owner/admin controls"
+              : "Only workspace owners and admins can change these settings."}
+          </span>
+        </div>
+      </div>
+
+      <label className="workspace-setting">
+        <span>Computation mode</span>
+        <select
+          value={mode}
+          onChange={(event) =>
+            setMode(event.target.value as "offline" | "online")
+          }
+          disabled={!enabled}
+        >
+          
+          <option value="online">Online</option>
+        </select>
+      </label>
+
+      <label className="workspace-setting-toggle">
+        <input
+          type="checkbox"
+          checked={allowPosting}
+          onChange={(event) => setAllowPosting(event.target.checked)}
+          disabled={!enabled}
+        />
+        <span>Allow members to post questions</span>
+      </label>
+
+      <label className="workspace-setting-toggle">
+        <input
+          type="checkbox"
+          checked={allowSolving}
+          onChange={(event) => setAllowSolving(event.target.checked)}
+          disabled={!enabled}
+        />
+        <span>Allow members to solve questions</span>
+      </label>
+
+      <button
+        type="button"
+        className="primary"
+        onClick={() => void save()}
+        disabled={!enabled || busy}
+      >
+        Save Settings
+      </button>
+    </div>
+  );
+}
+
+function LoadingState({ message }: { message: string }) {
+  return (
+    <motion.div className="center-state" aria-live="polite" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div
+        className="spinner"
+        aria-hidden="true"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
+      />
+      <h2>{message}</h2>
+      <p>Please wait while Stepwise Prism AI prepares your session.</p>
+    </motion.div>
+  );
+}
+
+function Composer({
+  value,
+  onChange,
+  onSubmit,
+  onImage,
+  disabled,
+  graphical,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onImage: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled: boolean;
+  graphical: boolean;
+}) {
+  const placeholder = "Ask your question...";
+
+  return (
+    <motion.div className="composer" whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 250, damping: 20 }}>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            onSubmit();
+          }
+        }}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        disabled={disabled}
+      />
+      {!graphical && <label className="icon-button" aria-label="Upload image">
+        Attach
+        <input
+          type="file"
+          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+          hidden
+          onChange={onImage}
+          disabled={disabled}
+        />
+      </label>}
+        <motion.button type="submit" className="send-button" disabled={disabled} aria-label="Send">&#10148;</motion.button>
+    </motion.div>
+  );
+}
+
+function GraphEditor({
+  coordinates,
+  onChange,
+}: {
+  coordinates: Coordinate[];
+  onChange: (coordinates: Coordinate[]) => void;
+}) {
+  return (
+    <motion.div className="graph-editor" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0 }} transition={{ type: "spring", stiffness: 150, damping: 20 }}>
+      <div className="graph-editor-header">
+        <div>
+          <strong>Graph</strong>
+          <span>{coordinates.length}/4 points</span>
+        </div>
+        <div className="graph-editor-actions">
+          <button
+            type="button"
+            className="graph-control"
+            onClick={() => onChange([...coordinates, [0, 0]])}
+            disabled={coordinates.length >= 4}
+          >
+            + Add point
+          </button>
+          <button
+            type="button"
+            className="graph-control"
+            onClick={() => onChange(coordinates.slice(0, -1))}
+            disabled={coordinates.length === 0}
+          >
+            &minus; Remove point
+          </button>
+        </div>
+      </div>
+      <GraphCanvas coordinates={coordinates} editable onChange={onChange} />
+      <p className="graph-help">Drag points to place them on the 20 &#215; 20 grid.</p>
+    </motion.div>
+  );
+}
+
+function GraphCanvas({
+  coordinates,
+  editable = false,
+  onChange,
+}: {
+  coordinates: Coordinate[];
+  editable?: boolean;
+  onChange?: (coordinates: Coordinate[]) => void;
+}) {
+  const size = 540;
+  const graphPadding = 30;
+  const origin = size / 2;
+  const plotSize = size - graphPadding * 2;
+  const largestCoordinate = coordinates.reduce(
+    (largest, [x, y]) => Math.max(largest, Math.abs(x), Math.abs(y)),
+    0,
+  );
+  const axisLimit = editable
+    ? 20
+    : Math.max(10, Math.ceil((largestCoordinate + 10) / 10) * 10);
+  const unit = plotSize / (axisLimit * 2);
+  const toSvg = ([x, y]: Coordinate) => [origin + x * unit, origin - y * unit];
+
+  function movePoint(index: number, event: React.PointerEvent<SVGCircleElement>) {
+    if (!editable || !onChange) return;
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const update = (moveEvent: PointerEvent) => {
+      const rect = svg.getBoundingClientRect();
+      const x = ((moveEvent.clientX - rect.left) / rect.width) * size;
+      const y = ((moveEvent.clientY - rect.top) / rect.height) * size;
+      const next: Coordinate = [
+        Math.max(-axisLimit, Math.min(axisLimit, Math.round(((x - origin) / unit) * 2) / 2)),
+        Math.max(-axisLimit, Math.min(axisLimit, Math.round(((origin - y) / unit) * 2) / 2)),
+      ];
+      onChange(coordinates.map((point, pointIndex) => pointIndex === index ? next : point));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", update);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", update);
+    window.addEventListener("pointerup", stop, { once: true });
+  }
+
+  return (
+    <svg
+      className={`graph-canvas ${editable ? "editable" : ""}`}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label="Coordinate graph"
+      onPointerDown={(event) => { if (editable && event.target === event.currentTarget) event.preventDefault(); }}
+    >
+      <rect width={size} height={size} className="graph-background" />
+      {Array.from({ length: 21 }, (_, index) => {
+        const label = -axisLimit + index * (axisLimit / 10);
+        const position = graphPadding + index * (plotSize / 20);
+        return <g key={index}>
+          <line x1={position} y1="0" x2={position} y2={size} className="graph-grid-line" />
+          <line x1="0" y1={position} x2={size} y2={position} className="graph-grid-line" />
+          {label !== 0 && label % 2 === 0 && <>
+            <text x={position} y={origin + 16} textAnchor="middle" className="graph-coordinate-label">{label}</text>
+            <text x={origin - 7} y={origin - label * unit + 4} textAnchor="end" className="graph-coordinate-label">{label}</text>
+          </>}
+        </g>;
+      })}
+      <line x1="0" y1={origin} x2={size} y2={origin} className="graph-axis" />
+      <line x1={origin} y1={size} x2={origin} y2="0" className="graph-axis" />
+      <text x="16" y={origin - 8} className="graph-axis-label">x&apos;</text>
+      <text x={size - 18} y={origin - 8} className="graph-axis-label">x</text>
+      <text x={origin + 8} y="20" className="graph-axis-label">y</text>
+      <text x={origin + 8} y={size - 10} className="graph-axis-label">y&apos;</text>
+      <text x={origin + 8} y={origin + 16} className="graph-axis-label">O</text>
+      {coordinates.length >= 3 && <polygon points={coordinates.map(toSvg).map(([x, y]) => `${x},${y}`).join(" ")} className="graph-line" />}
+      {coordinates.length === 2 && <polyline points={coordinates.map(toSvg).map(([x, y]) => `${x},${y}`).join(" ")} className="graph-line" />}
+      {coordinates.map((point, index) => {
+        const [x, y] = toSvg(point);
+        return <g key={index}><circle cx={x} cy={y} r="8" className={`graph-point point-${index}`} onPointerDown={(event) => movePoint(index, event)} /><text x={x + 10} y={y - 10} className="graph-point-label">P{index + 1} ({point[0]}, {point[1]})</text></g>;
+      })}
+    </svg>
+  );
+}
+
+function Quiz({
+  question,
+  current,
+  total,
+  progress,
+  selected,
+  showHint,
+  finalQuestion = false,
+  learnAgain = false,
+  onSelect,
+  onHint,
+  onNext,
+  onPrevious,
+}: {
+  question: Question;
+  current: number;
+  total: number;
+  progress: number;
+  selected: number | null;
+  showHint: boolean;
+  finalQuestion?: boolean;
+  learnAgain?: boolean;
+  onSelect: (option: number) => void;
+  onHint: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+}) {
+  return (
+    <motion.div className="quiz-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <motion.div className="quiz-header" initial={{ y: -14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.35 }}>
+        <span>
+          {finalQuestion
+            ? "Your original question"
+            : learnAgain
+              ? `Learn Again  &middot;  Question ${current + 1} of ${total}`
+              : `Question ${current + 1} of ${total}`}
+        </span>
+        {!finalQuestion && <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>}
+      </motion.div>
+
+      <motion.section className="quiz-card" layout transition={{ type: "spring", stiffness: 170, damping: 24 }}>
+      {question.coordinates && question.coordinates.length > 0 && <GraphCanvas coordinates={question.coordinates} />}
+        <h1><MathText>{question.question}</MathText></h1>
+        <motion.div className="options" role="radiogroup" aria-label="Answer options" variants={{ show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show">
+          {question.options.map((option, index) => {
+            const number = index + 1;
+            const selectedClass = selected === number ? " selected" : "";
+            return (
+              <motion.button
+                key={`${number}-${option}`}
+                variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
+                whileHover={{ scale: 1.018, x: 5 }}
+                whileTap={{ scale: 0.985 }}
+                type="button"
+                role="radio"
+                aria-checked={selected === number}
+                className={`option${selectedClass}`}
+                onClick={() => onSelect(number)}
+              >
+                <span className="option-letter">{String.fromCharCode(64 + number)}</span>
+                <MathText>{option}</MathText>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        <div className="hint-area">
+          {!showHint ? (
+            <button type="button" className="hint-button" onClick={onHint}>Hint Need a hint?</button>
+          ) : (
+            <motion.div className="hint" initial={{ opacity: 0, height: 0, y: 8 }} animate={{ opacity: 1, height: "auto", y: 0 }} transition={{ type: "spring", stiffness: 170, damping: 20 }}>
+              <strong>Hint Hint</strong>
+              <MathText>{question.hint}</MathText>
+            </motion.div>
+          )}
+        </div>
+
+        <div className="quiz-actions">
+          {current > 0 || finalQuestion ? (
+            <button type="button" className="secondary" onClick={onPrevious}>&larr; Previous</button>
+          ) : <span />}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.035, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            className="primary"
+            onClick={onNext}
+            disabled={selected == null}
+          >
+            {finalQuestion ? "Submit Answer" : current === total - 1 ? "Finish &#8594;" : "Next &#8594;"}
+          </motion.button>
+        </div>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+type ReviewItem = {
+  question: Question;
+  index: number;
+  selected: number | null;
+  correct: boolean;
+};
+
+function QuestionReview({
+  review,
+  loadingIndex,
+  onLearnAgain,
+  hideLearnAgain = false,
+}: {
+  review: ReviewItem[];
+  loadingIndex: number | null;
+  onLearnAgain: (question: Question, index: number) => void;
+  hideLearnAgain?: boolean;
+}) {
+  return (
+    <section className="review-section" aria-labelledby="review-title">
+      <div className="review-heading">
+        <div>
+          <span className="eyebrow">Performance</span>
+          <h2 id="review-title">Question Review</h2>
+        </div>
+        <span className="review-count">{review.length} questions</span>
+      </div>
+
+      <div className="review-list">
+        {review.map((item, index) => (
+          <motion.article className="review-item" key={item.index} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06, duration: 0.35 }} whileHover={{ y: -3, scale: 1.005 }}>
+            <div className={`review-status ${item.correct ? "correct" : "incorrect"}`} aria-label={item.correct ? "Correct" : "Incorrect"}>
+              {item.correct ? "&#10003;" : "&#215;"}
+            </div>
+            <div className="review-content">
+              <div className="review-number">Question {item.index + 1}</div>
+              <div className="review-question"><MathText>{item.question.question}</MathText></div>
+              {item.selected != null && (
+                <div className="review-answer">
+                  Your answer: <strong><MathText>{item.question.options[item.selected - 1]}</MathText></strong>
+                  {!item.correct && <>  &middot;  Correct: <strong><MathText>{item.question.options[item.question.correct_option - 1]}</MathText></strong></>}
+                </div>
+              )}
+            </div>
+            {!item.correct && !hideLearnAgain && (
+              <button
+                type="button"
+                className="secondary learn-button"
+                onClick={() => onLearnAgain(item.question, item.index)}
+                disabled={loadingIndex !== null}
+              >
+                {loadingIndex === item.index ? "Preparing..." : "Learn Again"}
+              </button>
+            )}
+          </motion.article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LearnAgainResult({
+  score,
+  review,
+}: {
+  score: number;
+  review: ReviewItem[];
+}) {
+  const incorrect = review.length - score;
+  const percentage = review.length ? Math.round((score / review.length) * 100) : 0;
+
+  return (
+    <section className="learn-result-section" aria-labelledby="learn-result-title">
+      <div className="learn-result-card">
+        <span className="eyebrow">Learn Again Result</span>
+        <h2 id="learn-result-title">Concept Practice Complete</h2>
+        <div className="learn-score">{score} / {review.length}</div>
+        <p>{percentage}% correct</p>
+
+        <div className="learn-stats" aria-label="Learn Again score breakdown">
+          <div className="learn-stat">
+            <span className="learn-stat-value">{score}</span>
+            <span>Correct</span>
+          </div>
+          <div className="learn-stat">
+            <span className="learn-stat-value">{incorrect}</span>
+            <span>Incorrect</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="learn-review">
+        <div className="review-heading">
+          <div>
+            <span className="eyebrow">Answer key</span>
+            <h2>Learn Again Answers</h2>
+          </div>
+          <span className="review-count">{review.length} questions</span>
+        </div>
+
+        <div className="review-list">
+          {review.map((item, index) => (
+            <motion.article className="review-item learn-review-item" key={item.index} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06, duration: 0.35 }} whileHover={{ y: -3, scale: 1.005 }}>
+              <div
+                className={`review-status ${item.correct ? "correct" : "incorrect"}`}
+                aria-label={item.correct ? "Correct" : "Incorrect"}
+              >
+                {item.correct ? "&#10003;" : "&#215;"}
+              </div>
+
+              <div className="review-content">
+                <div className="review-number">Question {item.index + 1}</div>
+                <div className="review-question"><MathText>{item.question.question}</MathText></div>
+                <div className="review-answer">
+                  Your answer: <strong>
+                    {item.selected != null
+                      ? <MathText>{item.question.options[item.selected - 1]}</MathText>
+                      : "Not answered"}
+                  </strong>
+                  {!item.correct && (
+                    <>  &middot;  Right answer: <strong><MathText>{item.question.options[item.question.correct_option - 1]}</MathText></strong></>
+                  )}
+                </div>
+              </div>
+            </motion.article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function parseStoredList(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === "string");
+    }
+  } catch {
+    // Fall through to the legacy delimiter format.
+  }
+
+  return value.split(", ").map((item) => item.trim()).filter((item) => item.length > 0);
+}
+
+function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
+  const aiQuestionsList = parseStoredList(historyDetail.ai_questions);
+  const aiAnswersList = parseStoredList(historyDetail.ai_answers);
+
+  const wrongQuestions = historyDetail.wrong_answered_question
+    ? historyDetail.wrong_answered_question
+        .split(", ")
+        .map((q) => q.trim())
+        .filter((q) => q.length > 0)
+    : [];
+
+  // Parse score to get total questions
+  const scoreParts = historyDetail.score.split("/");
+  const totalQuestions = scoreParts.length === 2 ? parseInt(scoreParts[1]) : aiQuestionsList.length;
+
+  // Ensure answer list matches question list length
+  const answersWithFallback = aiQuestionsList.map((_, index) => aiAnswersList[index] || "Not recorded");
+
+  return (
+    <section className="review-section history-review-section" aria-labelledby="history-review-title">
+      <div className="review-heading">
+        <div>
+          <span className="eyebrow">Your Question</span>
+          <h2 id="history-review-title">Question & Answer Review</h2>
+        </div>
+      </div>
+
+      {/* User Question */}
+      <div className="user-question-section">
+        <div className="review-item user-question-review">
+          <div className="review-content">
+            <div className="review-label">Your Original Question</div>
+            <div className="review-question">{historyDetail.user_question}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Generated Questions and Answers */}
+      <div className="review-heading" style={{ marginTop: "2rem" }}>
+        <div>
+          <span className="eyebrow">Practice Questions</span>
+          <h3>Generated Questions & Your Responses</h3>
+        </div>
+        <span className="review-count">{totalQuestions} questions</span>
+      </div>
+
+      <div className="review-list">
+        {aiQuestionsList.map((question, index) => {
+          const isWrong = wrongQuestions.some((wq) => question.includes(wq) || wq.includes(question.substring(0, 30)));
+          return (
+            <article className="review-item history-review-item" key={index}>
+              <div
+                className={`review-status ${isWrong ? "incorrect" : "correct"}`}
+                aria-label={isWrong ? "Incorrect" : "Correct"}
+              >
+                {isWrong ? "&#215;" : "&#10003;"}
+              </div>
+              <div className="review-content">
+                <div className="review-number">Question {index + 1}</div>
+                <div className="review-question"><MathText>{question}</MathText></div>
+                <div className="review-answer">
+                  Correct answer: <strong><MathText>{answersWithFallback[index]}</MathText></strong>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export default App;
+
+
+
+
+
+
+
+
+
+
+
+

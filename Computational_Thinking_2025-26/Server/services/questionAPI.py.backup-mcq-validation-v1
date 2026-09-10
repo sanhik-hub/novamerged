@@ -61,19 +61,13 @@ Match the difficulty and mathematical level of the original problem. The AI resp
 
 Return ONLY valid JSON and follow the exact JSON structure/schema configured for this request. Do not add, remove, rename, or restructure fields. Do not include Markdown, code fences, explanations, or text outside the JSON.
 
-Before returning, perform a strict mathematical validation for every generated question:
-- Solve the generated question yourself before writing the options.
-- Put the mathematically correct result in exactly one option.
-- Construct the three incorrect options from specific plausible mathematical mistakes.
-- Re-check every option against the solved question.
-- The value of correct_option MUST identify the one option that is mathematically correct, using 1=A, 2=B, 3=C, 4=D.
-- Never return a question when zero options are correct or when more than one option is correct; regenerate that question first.
-- For calculation questions, independently substitute/differentiate/integrate where applicable to verify the selected correct option.
-- Hints, correct_option, options, and solutions MUST all agree.
-- There must be 5-15 smaller questions.
-- Every question must have exactly 4 options and exactly one correct answer.
+Before returning, verify:
+- The original problem was interpreted correctly.
+- All mathematics is correct.
+- There are 5–15 smaller questions.
+- Every question has exactly 4 options and one correct answer.
+- Hints, answers, and solutions are consistent.
 - The smaller questions collectively prepare the student to solve the original problem.
-- Use ASCII mathematical notation only: x^2, x^(n+1), 1/2, sqrt(...), pi, sin(x), cos(x). Never use superscript Unicode characters, subscript Unicode characters, or Markdown backticks.
 - The output follows the configured JSON schema exactly.
 """
 

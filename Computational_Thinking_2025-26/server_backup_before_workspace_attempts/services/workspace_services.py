@@ -59,7 +59,7 @@ def create_workspace(username: str, name: str):
 
         settings = WorkspaceSettings(
             workspace_id=workspace.id,
-            computation_mode="online",
+            computation_mode="offline",
             allow_member_posting=False,
             allow_member_solving=True,
         )

@@ -1,0 +1,2956 @@
+===== WORKSPACE ROUTES: routes.py =====
+
+        history_detail, error = get_history_detail(
+            history_id,
+            username
+        )
+
+        if error == "History entry not found":
+            return {
+                "error": error
+            }, 404
+
+        if error:
+            return {
+                "error": error
+            }, 500
+
+        return {
+            "message": "History detail retrieved successfully",
+            "data": history_detail
+        }, 200
+        # ============================================================
+    # CREATE WORKSPACE
+    # ============================================================
+
+    @app.route("/WorkspaceCreate", methods=["POST"])
+    def receive_WorkspaceCreate():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        workspace_data = request.get_json(silent=True) or {}
+
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"Name"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        name = workspace_data.get("Name")
+
+        if not isinstance(name, str):
+            return {
+                "error": "Name must be a string"
+            }, 400
+
+        workspace, error = create_workspace(
+            user.username,
+            name,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace created successfully",
+            "data": workspace,
+        }, 201
+
+    # ============================================================
+    # JOIN WORKSPACE
+    # ============================================================
+
+    @app.route("/WorkspaceJoin", methods=["POST"])
+    def receive_WorkspaceJoin():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        workspace_data = request.get_json(silent=True) or {}
+
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"JoinCode"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        join_code = workspace_data.get("JoinCode")
+
+        if not isinstance(join_code, str):
+            return {
+                "error": "JoinCode must be a string"
+            }, 400
+
+        workspace, error = join_workspace(
+            user.username,
+            join_code,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace joined successfully",
+            "data": workspace,
+        }, 200
+
+    # ============================================================
+    # GET USER WORKSPACES
+    # ============================================================
+
+    @app.route("/Workspaces", methods=["POST"])
+    def receive_Workspaces():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        workspace_data = request.get_json(silent=True) or {}
+
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        if workspace_data:
+            return {
+                "error": f"Unexpected fields: {sorted(workspace_data.keys())}"
+            }, 400
+
+        workspaces, error = get_user_workspaces(
+            user.username
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspaces retrieved successfully",
+            "data": workspaces,
+        }, 200
+
+    # ============================================================
+    # WORKSPACE DETAILS
+    # ============================================================
+
+    @app.route("/WorkspaceDetails", methods=["POST"])
+    def receive_WorkspaceDetails():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        workspace_data = request.get_json(silent=True) or {}
+
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"WorkspaceId"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        workspace_id = workspace_data.get("WorkspaceId")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {
+                "error": "WorkspaceId must be an integer"
+            }, 400
+
+        workspace, error = get_workspace_details(
+            user.username,
+            workspace_id,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace details retrieved successfully",
+            "data": workspace,
+        }, 200
+
+    # ============================================================
+    # LEAVE WORKSPACE
+    # ============================================================
+    @app.route("/WorkspaceLeave", methods=["POST"])
+    def receive_WorkspaceLeave():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        workspace_data = request.get_json(silent=True) or {}
+
+        if not isinstance(workspace_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"WorkspaceId"}
+        missing_fields = required_fields - workspace_data.keys()
+        extra_fields = set(workspace_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        workspace_id = workspace_data.get("WorkspaceId")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {
+                "error": "WorkspaceId must be an integer"
+            }, 400
+
+        result, error = leave_workspace(
+            user.username,
+            workspace_id,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace left successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceInvite", methods=["POST"])
+    def receive_WorkspaceInvite():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "Username",
+        }
+
+        missing_fields = required_fields - invitation_data.keys()
+        extra_fields = set(invitation_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        workspace_id = invitation_data.get("WorkspaceId")
+        invited_username = invitation_data.get("Username")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {
+                "error": "WorkspaceId must be an integer"
+            }, 400
+
+        if not isinstance(invited_username, str):
+            return {
+                "error": "Username must be a string"
+            }, 400
+
+        invitation, error = invite_user_to_workspace(
+            user.username,
+            workspace_id,
+            invited_username,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Invited user not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Admin privileges required":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitation sent successfully",
+            "data": invitation,
+        }, 201
+
+    @app.route("/WorkspaceInvitations", methods=["POST"])
+    def receive_WorkspaceInvitations():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        if invitation_data:
+            return {
+                "error": f"Unexpected fields: {sorted(invitation_data.keys())}"
+            }, 400
+
+        invitations, error = get_pending_workspace_invitations(
+            user.username
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitations retrieved successfully",
+            "data": invitations,
+        }, 200
+
+    @app.route("/WorkspaceInvitationAccept", methods=["POST"])
+    def receive_WorkspaceInvitationAccept():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"InvitationId"}
+        missing_fields = required_fields - invitation_data.keys()
+        extra_fields = set(invitation_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        invitation_id = invitation_data.get("InvitationId")
+
+        if isinstance(invitation_id, bool) or not isinstance(invitation_id, int):
+            return {
+                "error": "InvitationId must be an integer"
+            }, 400
+
+        result, error = accept_workspace_invitation(
+            user.username,
+            invitation_id,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Invitation not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not the recipient of this invitation":
+            return {"error": error}, 403
+
+        if error == "Invitation is no longer pending":
+            return {"error": error}, 400
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitation accepted successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceInvitationDecline", methods=["POST"])
+    def receive_WorkspaceInvitationDecline():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        invitation_data = request.get_json(silent=True) or {}
+
+        if not isinstance(invitation_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"InvitationId"}
+        missing_fields = required_fields - invitation_data.keys()
+        extra_fields = set(invitation_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        invitation_id = invitation_data.get("InvitationId")
+
+        if isinstance(invitation_id, bool) or not isinstance(invitation_id, int):
+            return {
+                "error": "InvitationId must be an integer"
+            }, 400
+
+        result, error = decline_workspace_invitation(
+            user.username,
+            invitation_id,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Invitation not found":
+            return {"error": error}, 404
+
+        if error == "You are not the recipient of this invitation":
+            return {"error": error}, 403
+
+        if error == "Invitation is no longer pending":
+            return {"error": error}, 400
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace invitation declined successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspacePromote", methods=["POST"])
+    def receive_WorkspacePromote():
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        promotion_data = request.get_json(silent=True) or {}
+
+        if not isinstance(promotion_data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "Username",
+        }
+
+        missing_fields = required_fields - promotion_data.keys()
+        extra_fields = set(promotion_data.keys()) - required_fields
+
+        if missing_fields:
+            return {
+                "error": f"Missing fields: {sorted(missing_fields)}"
+            }, 400
+
+        if extra_fields:
+            return {
+                "error": f"Unexpected fields: {sorted(extra_fields)}"
+            }, 400
+
+        workspace_id = promotion_data.get("WorkspaceId")
+        member_username = promotion_data.get("Username")
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {
+                "error": "WorkspaceId must be an integer"
+            }, 400
+
+        if not isinstance(member_username, str):
+            return {
+                "error": "Username must be a string"
+            }, 400
+
+        result, error = promote_workspace_member(
+            user.username,
+            workspace_id,
+            member_username,
+        )
+
+        if error == "User not found":
+            return {"error": error}, 404
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "Member not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Admin privileges required":
+            return {"error": error}, 403
+
+        if error == "User is not a member of this workspace":
+            return {"error": error}, 400
+
+        if error == "User is already an admin":
+            return {"error": error}, 400
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace member promoted successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceSettingsUpdate", methods=["POST"])
+    def workspace_settings_update():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "ComputationMode",
+            "AllowMemberPosting",
+            "AllowMemberSolving",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        if "WorkspaceId" not in data:
+            return {"error": "WorkspaceId is required"}, 400
+
+        workspace_id = data["WorkspaceId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        setting_fields = {
+            "ComputationMode",
+            "AllowMemberPosting",
+            "AllowMemberSolving",
+        }
+
+        if not any(field in data for field in setting_fields):
+            return {
+                "error": (
+                    "At least one setting field is required: "
+                    "ComputationMode, AllowMemberPosting, "
+                    "AllowMemberSolving"
+                )
+            }, 400
+
+        if "ComputationMode" in data:
+            if not isinstance(data["ComputationMode"], str):
+                return {"error": "ComputationMode must be a string"}, 400
+
+            if data["ComputationMode"] not in {"offline", "online"}:
+                return {
+                    "error": "ComputationMode must be 'offline' or 'online'"
+                }, 400
+
+        if "AllowMemberPosting" in data:
+            if not isinstance(data["AllowMemberPosting"], bool):
+                return {
+                    "error": "AllowMemberPosting must be a boolean"
+                }, 400
+
+        if "AllowMemberSolving" in data:
+            if not isinstance(data["AllowMemberSolving"], bool):
+                return {
+                    "error": "AllowMemberSolving must be a boolean"
+                }, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = update_workspace_settings(
+            admin_username=user.username,
+            workspace_id=workspace_id,
+            computation_mode=data.get("ComputationMode"),
+            allow_member_posting=data.get("AllowMemberPosting"),
+            allow_member_solving=data.get("AllowMemberSolving"),
+        )
+
+        if error:
+            if error in {
+                "Workspace not found",
+                "Workspace settings not found",
+            }:
+                return {"error": error}, 404
+
+            if error in {
+                "You are not a member of this workspace",
+                "Admin privileges required",
+            }:
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace settings updated successfully",
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceQuestionCreate", methods=["POST"])
+    def workspace_question_create():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "Question",
+            "ImagePath",
+            "QuestionType",
+            "Visibility",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        required_fields = {"WorkspaceId", "Question"}
+
+        missing = sorted(required_fields - set(data.keys()))
+        if missing:
+            return {"error": f"Missing required fields: {missing}"}, 400
+
+        workspace_id = data["WorkspaceId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        question = data["Question"]
+
+        if not isinstance(question, str):
+            return {"error": "Question must be a string"}, 400
+
+        image_path = data.get("ImagePath")
+
+        if image_path is not None and not isinstance(image_path, str):
+            return {"error": "ImagePath must be a string"}, 400
+
+        question_type = data.get("QuestionType", "solver")
+
+        if not isinstance(question_type, str):
+            return {"error": "QuestionType must be a string"}, 400
+
+        if question_type not in {"solver", "assessment", "mcq"}:
+            return {
+                "error": "QuestionType must be 'solver', 'assessment', or 'mcq'"
+            }, 400
+
+        visibility = data.get("Visibility", "public")
+
+        if not isinstance(visibility, str):
+            return {"error": "Visibility must be a string"}, 400
+
+        if visibility not in {"public", "private"}:
+            return {
+                "error": "Visibility must be 'public' or 'private'"
+            }, 400
+        
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = create_workspace_question(
+            username=user.username,
+            workspace_id=workspace_id,
+            question=question,
+            image_path=image_path,
+            question_type=question_type,
+            visibility=visibility,
+        )
+
+        if error:
+            if error in {
+                "Workspace not found",
+                "Workspace settings not found",
+            }:
+                return {"error": error}, 404
+
+            if error in {
+                "You are not a member of this workspace",
+                "Members are not allowed to post questions",
+            }:
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace question created successfully",
+            "data": result,
+        }, 201
+
+    @app.route("/WorkspaceQuestions", methods=["POST"])
+    def workspace_questions():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {"WorkspaceId"}
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        if "WorkspaceId" not in data:
+            return {"error": "WorkspaceId is required"}, 400
+
+        workspace_id = data["WorkspaceId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = get_workspace_questions(
+            username=user.username,
+            workspace_id=workspace_id,
+        )
+
+        if error:
+            if error == "Workspace not found":
+                return {"error": error}, 404
+
+            if error == "You are not a member of this workspace":
+                return {"error": error}, 403
+
+            return {"error": error}, 400
+
+        return {
+            "data": result,
+            "count": len(result),
+        }, 200
+
+    @app.route("/WorkspaceQuestionDetails", methods=["POST"])
+    def workspace_question_details():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        missing = sorted(required_fields - set(data.keys()))
+        if missing:
+            return {"error": f"Missing required fields: {missing}"}, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if isinstance(question_id, bool) or not isinstance(question_id, int):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = get_workspace_question(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+        )
+
+        if error in {
+            "Workspace not found",
+            "Workspace question not found",
+        }:
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceQuestionSolution", methods=["POST"])
+    def workspace_question_solution():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {"WorkspaceId", "QuestionId"}
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {"WorkspaceId", "QuestionId"}
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = get_cached_workspace_solution(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        if result is None:
+            return {
+                "cached": False,
+                "data": None,
+            }, 200
+
+        return {
+            "cached": True,
+            "data": result,
+        }, 200
+
+    @app.route("/WorkspaceQuestionSolutionStore", methods=["POST"])
+    def workspace_question_solution_store():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Engine",
+            "Result",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Engine",
+            "Result",
+        }
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+        engine = data["Engine"]
+        result = data["Result"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        if not isinstance(engine, str) or not engine.strip():
+            return {"error": "Engine must be a non-empty string"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result_data, error = store_workspace_question_solution(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+            engine=engine.strip(),
+            result=result,
+        )
+
+        if error == "Workspace not found":
+            return {"error": error}, 404
+
+        if error == "You are not a member of this workspace":
+            return {"error": error}, 403
+
+        if error == "Workspace question not found":
+            return {"error": error}, 404
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "cached": True,
+            "data": result_data,
+        }, 200
+
+    @app.route("/WorkspaceQuestionAttemptCreate", methods=["POST"])
+    def workspace_question_attempt_create():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+            "Mode",
+            "SubmittedAnswer",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+
+        if unexpected:
+            return {
+                "error": f"Unexpected fields: {unexpected}"
+            }, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        missing = sorted(
+            required_fields - set(data.keys())
+        )
+
+        if missing:
+            return {
+                "error": f"Missing required fields: {missing}"
+            }, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if (
+            isinstance(workspace_id, bool)
+            or not isinstance(workspace_id, int)
+        ):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if (
+            isinstance(question_id, bool)
+            or not isinstance(question_id, int)
+        ):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        mode = data.get("Mode", "solver")
+        submitted_answer = data.get("SubmittedAnswer")
+
+        if not isinstance(mode, str):
+            return {"error": "Mode must be a string"}, 400
+
+        user, auth_error = get_authenticated_user()
+
+        if auth_error:
+            return auth_error
+
+        result, error = create_workspace_question_attempt(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+            mode=mode,
+            submitted_answer=submitted_answer,
+        )
+
+
+===== WORKSPACE SERVICES: workspace_services.py =====
+from database.db import db
+from datetime import datetime
+from database.models import (
+    User,
+    Workspace,
+    WorkspaceMember,
+    WorkspaceSettings,
+    WorkspaceInvitation,
+    WorkspaceQuestion,
+)
+import secrets
+import string
+
+
+def _generate_join_code(length=8):
+    alphabet = string.ascii_uppercase + string.digits
+
+    while True:
+        code = "".join(secrets.choice(alphabet) for _ in range(length))
+
+        existing = Workspace.query.filter_by(join_code=code).first()
+
+        if not existing:
+            return code
+
+
+def create_workspace(username: str, name: str):
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return None, "User not found"
+
+    name = name.strip()
+
+    if not name:
+        return None, "Workspace name cannot be empty"
+
+    if len(name) > 120:
+        return None, "Workspace name is too long"
+
+    try:
+        join_code = _generate_join_code()
+
+        workspace = Workspace(
+            name=name,
+            join_code=join_code,
+            created_by=user.id,
+            status="active",
+        )
+
+        db.session.add(workspace)
+        db.session.flush()
+
+        member = WorkspaceMember(
+            workspace_id=workspace.id,
+            user_id=user.id,
+            role="admin",
+        )
+
+        settings = WorkspaceSettings(
+            workspace_id=workspace.id,
+            computation_mode="offline",
+            allow_member_posting=False,
+            allow_member_solving=True,
+        )
+
+        db.session.add(member)
+        db.session.add(settings)
+
+        db.session.commit()
+
+        return {
+            "id": workspace.id,
+            "name": workspace.name,
+            "join_code": workspace.join_code,
+            "role": "admin",
+            "computation_mode": settings.computation_mode,
+            "allow_member_posting": settings.allow_member_posting,
+            "allow_member_solving": settings.allow_member_solving,
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace"
+
+
+def join_workspace(username: str, join_code: str):
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return None, "User not found"
+
+    join_code = join_code.strip().upper()
+
+    workspace = Workspace.query.filter_by(
+        join_code=join_code,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Invalid workspace join code"
+
+    existing_member = WorkspaceMember.query.filter_by(
+        workspace_id=workspace.id,
+        user_id=user.id,
+    ).first()
+
+    if existing_member:
+        return None, "User is already a member of this workspace"
+
+    try:
+        member = WorkspaceMember(
+            workspace_id=workspace.id,
+            user_id=user.id,
+            role="member",
+        )
+
+        db.session.add(member)
+        db.session.commit()
+
+        return {
+            "id": workspace.id,
+            "name": workspace.name,
+            "join_code": workspace.join_code,
+            "role": "member",
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to join workspace"
+
+
+def get_user_workspaces(username: str):
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return None, "User not found"
+
+    try:
+        memberships = (
+            WorkspaceMember.query
+            .join(
+                Workspace,
+                Workspace.id == WorkspaceMember.workspace_id,
+            )
+            .filter(
+                WorkspaceMember.user_id == user.id,
+                Workspace.status == "active",
+            )
+            .order_by(Workspace.id.desc())
+            .all()
+        )
+
+        result = []
+
+        for membership in memberships:
+            workspace = Workspace.query.get(membership.workspace_id)
+
+            if not workspace:
+                continue
+
+            result.append({
+                "id": workspace.id,
+                "name": workspace.name,
+                "join_code": workspace.join_code,
+                "role": membership.role,
+                "created_by": workspace.created_by,
+                "created_at": (
+                    workspace.created_at.isoformat()
+                    if workspace.created_at
+                    else None
+                ),
+            })
+
+        return result, None
+
+    except Exception:
+        return None, "Failed to retrieve workspaces"
+
+
+def get_workspace_details(username: str, workspace_id: int):
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    settings = WorkspaceSettings.query.filter_by(
+        workspace_id=workspace.id
+    ).first()
+
+    member_count = WorkspaceMember.query.filter_by(
+        workspace_id=workspace.id
+    ).count()
+
+    return {
+        "id": workspace.id,
+        "name": workspace.name,
+        "join_code": workspace.join_code,
+        "role": membership.role,
+        "created_by": workspace.created_by,
+        "created_at": (
+            workspace.created_at.isoformat()
+            if workspace.created_at
+            else None
+        ),
+        "member_count": member_count,
+        "settings": {
+            "computation_mode": (
+                settings.computation_mode
+                if settings
+                else "offline"
+            ),
+            "allow_member_posting": (
+                settings.allow_member_posting
+                if settings
+                else False
+            ),
+            "allow_member_solving": (
+                settings.allow_member_solving
+                if settings
+                else True
+            ),
+        },
+    }, None
+
+def leave_workspace(username: str, workspace_id: int):
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return None, "User not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    if membership.role == "admin":
+        return None, (
+            "Workspace admins cannot leave the workspace. "
+            "Transfer administration first."
+        )
+
+    try:
+        db.session.delete(membership)
+        db.session.commit()
+
+        return {
+            "workspace_id": workspace_id,
+            "message": "You have left the workspace",
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to leave workspace"
+
+def invite_user_to_workspace(
+    admin_username: str,
+    workspace_id: int,
+    invited_username: str,
+):
+    admin = User.query.filter_by(
+        username=admin_username
+    ).first()
+
+    if not admin:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    admin_membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=admin.id,
+    ).first()
+
+    if not admin_membership:
+        return None, "You are not a member of this workspace"
+
+    if admin_membership.role != "admin":
+        return None, "Admin privileges required"
+
+    invited_username = invited_username.strip()
+
+    if not invited_username:
+        return None, "Username cannot be empty"
+
+    invited_user = User.query.filter_by(
+        username=invited_username
+    ).first()
+
+    if not invited_user:
+        return None, "Invited user not found"
+
+    if invited_user.id == admin.id:
+        return None, "You cannot invite yourself"
+
+    existing_member = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=invited_user.id,
+    ).first()
+
+    if existing_member:
+        return None, "User is already a member of this workspace"
+
+    existing_invitation = WorkspaceInvitation.query.filter_by(
+        workspace_id=workspace_id,
+        invited_user_id=invited_user.id,
+        status="pending",
+    ).first()
+
+    if existing_invitation:
+        return None, "A pending invitation already exists"
+
+    try:
+        invitation = WorkspaceInvitation(
+            workspace_id=workspace_id,
+            invited_user_id=invited_user.id,
+            invited_by=admin.id,
+            status="pending",
+        )
+
+        db.session.add(invitation)
+        db.session.commit()
+
+        return {
+            "id": invitation.id,
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "invited_user_id": invited_user.id,
+            "invited_username": invited_user.username,
+            "invited_by": admin.username,
+            "status": invitation.status,
+            "created_at": (
+                invitation.created_at.isoformat()
+                if invitation.created_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace invitation"
+
+
+def get_pending_workspace_invitations(username: str):
+    user = User.query.filter_by(
+        username=username
+    ).first()
+
+    if not user:
+        return None, "User not found"
+
+    try:
+        invitations = (
+            WorkspaceInvitation.query
+            .join(
+                Workspace,
+                Workspace.id == WorkspaceInvitation.workspace_id,
+            )
+            .filter(
+                WorkspaceInvitation.invited_user_id == user.id,
+                WorkspaceInvitation.status == "pending",
+                Workspace.status == "active",
+            )
+            .order_by(
+                WorkspaceInvitation.id.desc()
+            )
+            .all()
+        )
+
+        result = []
+
+        for invitation in invitations:
+            workspace = Workspace.query.get(
+                invitation.workspace_id
+            )
+
+            inviter = User.query.get(
+                invitation.invited_by
+            )
+
+            if not workspace or not inviter:
+                continue
+
+            result.append({
+                "id": invitation.id,
+                "workspace_id": workspace.id,
+                "workspace_name": workspace.name,
+                "join_code": workspace.join_code,
+                "invited_by": inviter.username,
+                "status": invitation.status,
+                "created_at": (
+                    invitation.created_at.isoformat()
+                    if invitation.created_at
+                    else None
+                ),
+            })
+
+        return result, None
+
+    except Exception:
+        return None, "Failed to retrieve workspace invitations"
+
+def accept_workspace_invitation(
+    username: str,
+    invitation_id: int,
+):
+    user = User.query.filter_by(
+        username=username
+    ).first()
+
+    if not user:
+        return None, "User not found"
+
+    invitation = WorkspaceInvitation.query.filter_by(
+        id=invitation_id
+    ).first()
+
+    if not invitation:
+        return None, "Invitation not found"
+
+    if invitation.invited_user_id != user.id:
+        return None, "You are not the recipient of this invitation"
+
+    if invitation.status != "pending":
+        return None, "Invitation is no longer pending"
+
+    workspace = Workspace.query.filter_by(
+        id=invitation.workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    existing_member = WorkspaceMember.query.filter_by(
+        workspace_id=workspace.id,
+        user_id=user.id,
+    ).first()
+
+    try:
+        if not existing_member:
+            member = WorkspaceMember(
+                workspace_id=workspace.id,
+                user_id=user.id,
+                role="member",
+            )
+            db.session.add(member)
+
+        invitation.status = "accepted"
+        invitation.responded_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return {
+            "invitation_id": invitation.id,
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "role": (
+                existing_member.role
+                if existing_member
+                else "member"
+            ),
+            "status": invitation.status,
+            "responded_at": (
+                invitation.responded_at.isoformat()
+                if invitation.responded_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to accept workspace invitation"
+
+def decline_workspace_invitation(
+    username: str,
+    invitation_id: int,
+):
+    user = User.query.filter_by(
+        username=username
+    ).first()
+
+    if not user:
+        return None, "User not found"
+
+    invitation = WorkspaceInvitation.query.filter_by(
+        id=invitation_id
+    ).first()
+
+    if not invitation:
+        return None, "Invitation not found"
+
+    if invitation.invited_user_id != user.id:
+        return None, "You are not the recipient of this invitation"
+
+    if invitation.status != "pending":
+        return None, "Invitation is no longer pending"
+
+    try:
+        invitation.status = "declined"
+        invitation.responded_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return {
+            "invitation_id": invitation.id,
+            "workspace_id": invitation.workspace_id,
+            "status": invitation.status,
+            "responded_at": (
+                invitation.responded_at.isoformat()
+                if invitation.responded_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to decline workspace invitation"
+
+
+def promote_workspace_member(
+    admin_username: str,
+    workspace_id: int,
+    member_username: str,
+):
+    admin = User.query.filter_by(
+        username=admin_username
+    ).first()
+
+    if not admin:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    admin_membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=admin.id,
+    ).first()
+
+    if not admin_membership:
+        return None, "You are not a member of this workspace"
+
+    if admin_membership.role != "admin":
+        return None, "Admin privileges required"
+
+    member_username = member_username.strip()
+
+    if not member_username:
+        return None, "Username cannot be empty"
+
+    member_user = User.query.filter_by(
+        username=member_username
+    ).first()
+
+    if not member_user:
+        return None, "Member not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=member_user.id,
+    ).first()
+
+    if not membership:
+        return None, "User is not a member of this workspace"
+
+    if membership.role == "admin":
+        return None, "User is already an admin"
+
+    try:
+        membership.role = "admin"
+
+        db.session.commit()
+
+        return {
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "user_id": member_user.id,
+            "username": member_user.username,
+            "role": membership.role,
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to promote workspace member"
+
+def update_workspace_settings(
+    admin_username: str,
+    workspace_id: int,
+    computation_mode=None,
+    allow_member_posting=None,
+    allow_member_solving=None,
+):
+    admin = User.query.filter_by(
+        username=admin_username
+    ).first()
+
+    if not admin:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=admin.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    if membership.role != "admin":
+        return None, "Admin privileges required"
+
+    settings = WorkspaceSettings.query.filter_by(
+        workspace_id=workspace_id
+    ).first()
+
+    if not settings:
+        return None, "Workspace settings not found"
+
+    if computation_mode is not None:
+        if computation_mode not in {"offline", "online"}:
+            return None, (
+                "ComputationMode must be 'offline' or 'online'"
+            )
+
+        settings.computation_mode = computation_mode
+
+    if allow_member_posting is not None:
+        if not isinstance(allow_member_posting, bool):
+            return None, (
+                "AllowMemberPosting must be a boolean"
+            )
+
+        settings.allow_member_posting = allow_member_posting
+
+    if allow_member_solving is not None:
+        if not isinstance(allow_member_solving, bool):
+            return None, (
+                "AllowMemberSolving must be a boolean"
+            )
+
+        settings.allow_member_solving = allow_member_solving
+
+    try:
+        db.session.commit()
+
+        return {
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "computation_mode": settings.computation_mode,
+            "allow_member_posting": (
+                settings.allow_member_posting
+            ),
+            "allow_member_solving": (
+                settings.allow_member_solving
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to update workspace settings"
+
+def create_workspace_question(
+    username: str,
+    workspace_id: int,
+    question: str,
+    image_path=None,
+    question_type="solver",
+    visibility="public",
+):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    if not isinstance(question, str):
+        return None, "Question must be a string"
+
+    question = question.strip()
+
+    if not question:
+        return None, "Question cannot be empty"
+
+    if len(question) > 10000:
+        return None, "Question is too long"
+
+    if question_type not in {"solver", "assessment", "mcq"}:
+        return None, "Invalid question type"
+
+    if visibility not in {"public", "private"}:
+        return None, "Visibility must be 'public' or 'private'"
+
+    settings = WorkspaceSettings.query.filter_by(
+        workspace_id=workspace_id
+    ).first()
+
+    if not settings:
+        return None, "Workspace settings not found"
+
+    # Public questions:
+    # admins can always post, members require permission.
+    if visibility == "public":
+        if (
+            membership.role != "admin"
+            and not settings.allow_member_posting
+        ):
+            return None, "Members are not allowed to post questions"
+
+    # Private questions:
+    # every workspace member is allowed to create them.
+    # No AllowMemberPosting permission is required.
+
+    workspace_question = WorkspaceQuestion(
+        workspace_id=workspace_id,
+        author_id=user.id,
+        question=question,
+        image_path=image_path,
+        question_type=question_type,
+        visibility=visibility,
+        status="active",
+    )
+
+    try:
+        db.session.add(workspace_question)
+        db.session.commit()
+
+        return {
+            "id": workspace_question.id,
+            "workspace_id": workspace_question.workspace_id,
+            "author_id": workspace_question.author_id,
+            "question": workspace_question.question,
+            "image_path": workspace_question.image_path,
+            "question_type": workspace_question.question_type,
+            "visibility": workspace_question.visibility,
+            "status": workspace_question.status,
+            "created_at": (
+                workspace_question.created_at.isoformat()
+                if workspace_question.created_at
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace question"
+
+def get_workspace_questions(username: str, workspace_id: int):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    # Admins can see every active question.
+    # Ordinary members can see:
+    #   - all public questions
+    #   - their own private questions
+    if membership.role == "admin":
+        questions = (
+            WorkspaceQuestion.query
+            .filter_by(
+                workspace_id=workspace_id,
+                status="active",
+            )
+            .order_by(WorkspaceQuestion.created_at.desc())
+            .all()
+        )
+    else:
+        questions = (
+            WorkspaceQuestion.query
+            .filter(
+                WorkspaceQuestion.workspace_id == workspace_id,
+                WorkspaceQuestion.status == "active",
+                db.or_(
+                    WorkspaceQuestion.visibility == "public",
+                    db.and_(
+                        WorkspaceQuestion.visibility == "private",
+                        WorkspaceQuestion.author_id == user.id,
+                    ),
+                ),
+            )
+            .order_by(WorkspaceQuestion.created_at.desc())
+            .all()
+        )
+
+    return [
+        {
+            "id": question.id,
+            "workspace_id": question.workspace_id,
+            "author_id": question.author_id,
+            "question": question.question,
+            "image_path": question.image_path,
+            "question_type": question.question_type,
+            "visibility": question.visibility,
+            "status": question.status,
+            "created_at": (
+                question.created_at.isoformat()
+                if question.created_at
+                else None
+            ),
+        }
+        for question in questions
+    ], None
+
+
+def get_workspace_question(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    # Private questions are visible only to their author
+    # and workspace admins.
+    if question.visibility == "private":
+        if membership.role != "admin" and question.author_id != user.id:
+            # Deliberately hide the existence of the question.
+            return None, "Workspace question not found"
+
+    return {
+        "id": question.id,
+        "workspace_id": question.workspace_id,
+        "author_id": question.author_id,
+        "question": question.question,
+        "image_path": question.image_path,
+        "question_type": question.question_type,
+        "visibility": question.visibility,
+        "status": question.status,
+        "created_at": (
+            question.created_at.isoformat()
+            if question.created_at
+            else None
+        ),
+    }, None
+
+
+
+===== WORKSPACE COMPUTATION: workspace_computation_service.py =====
+import json
+import time
+import uuid
+from datetime import date, datetime
+
+from sqlalchemy.exc import IntegrityError
+
+from database.db import db
+from database.models import (
+    Workspace,
+    WorkspaceMember,
+    WorkspaceQuestion,
+    WorkspaceSettings,
+    WorkspaceQuestionSolution,
+)
+
+from services.computation_service import ComputationService
+
+
+class WorkspaceComputationService:
+    """
+    Workspace-level computation service.
+
+    Guarantees that a workspace question has at most one active
+    computation at a time.
+
+    Successful computations are cached permanently.
+
+    Failed computations are recorded as failed state, but are NOT
+    treated as valid cached solutions. A later request may retry them.
+    """
+
+    COMPUTATION_WAIT_SECONDS = 60
+    POLL_INTERVAL_SECONDS = 0.25
+
+    def __init__(self):
+        self.computation = ComputationService()
+
+    # =========================================================
+    # PUBLIC COMPUTATION
+    # =========================================================
+
+    def compute_question(
+        self,
+        user_id: int,
+        workspace_id: int,
+        question_id: int,
+        operation: str = "compute",
+        provider: str = "wolfram",
+    ):
+        workspace = Workspace.query.filter_by(
+            id=workspace_id,
+            status="active",
+        ).first()
+
+        if not workspace:
+            return None, "Workspace not found"
+
+        membership = WorkspaceMember.query.filter_by(
+            workspace_id=workspace_id,
+            user_id=user_id,
+        ).first()
+
+        if not membership:
+            return None, "You are not a member of this workspace"
+
+        question = WorkspaceQuestion.query.filter_by(
+            id=question_id,
+            workspace_id=workspace_id,
+            status="active",
+        ).first()
+
+        if not question:
+            return None, "Workspace question not found"
+
+        # -----------------------------------------------------
+        # Private-question access
+        # -----------------------------------------------------
+
+        if (
+            question.visibility == "private"
+            and membership.role != "admin"
+            and question.author_id != user_id
+        ):
+            return None, "Workspace question not found"
+
+        # -----------------------------------------------------
+        # Workspace computation settings
+        # -----------------------------------------------------
+
+        settings = WorkspaceSettings.query.filter_by(
+            workspace_id=workspace_id
+        ).first()
+
+        if not settings:
+            return None, "Workspace settings not found"
+
+        if settings.computation_mode == "online":
+            return None, "Online computation is not enabled yet"
+
+        if settings.computation_mode != "offline":
+            return None, "Invalid workspace computation mode"
+
+        # -----------------------------------------------------
+        # Existing successful solution
+        # -----------------------------------------------------
+
+        cached = WorkspaceQuestionSolution.query.filter_by(
+            workspace_question_id=question.id
+        ).first()
+
+        if cached and cached.status == "completed":
+            result = self._decode_result(cached.result_json)
+
+            return {
+                "cached": True,
+                "solution_id": cached.id,
+                "workspace_question_id": question.id,
+                "engine": cached.engine,
+                "status": cached.status,
+                "result": result,
+                "error_message": cached.error_message,
+            }, None
+
+        # -----------------------------------------------------
+        # Existing computation in progress
+        # -----------------------------------------------------
+
+        if cached and cached.status == "computing":
+            return self._wait_for_computation(
+                question_id=question.id,
+            )
+
+        # -----------------------------------------------------
+        # Failed state
+        #
+        # A failed computation is NOT a valid cache.
+        #
+        # Remove the old failure state so this request can attempt
+        # a fresh computation.
+        # -----------------------------------------------------
+
+        if cached and cached.status == "failed":
+            try:
+                db.session.delete(cached)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        # -----------------------------------------------------
+        # Claim the computation
+        # -----------------------------------------------------
+        #
+        # The unique constraint on workspace_question_id ensures
+        # only one request can successfully create the computing
+        # row.
+        #
+        # If another request wins the race, IntegrityError is
+        # raised and this request waits for that computation.
+        # -----------------------------------------------------
+
+        computation_token = uuid.uuid4().hex
+
+        solution = WorkspaceQuestionSolution(
+            workspace_question_id=question.id,
+            engine=provider,
+            status="computing",
+            result_json=None,
+            error_message=None,
+        )
+
+        try:
+            db.session.add(solution)
+            db.session.commit()
+
+        except IntegrityError:
+            db.session.rollback()
+
+            # Another request claimed this question between our
+            # cache lookup and INSERT.
+            return self._wait_for_computation(
+                question_id=question.id,
+            )
+
+        except Exception as exc:
+            db.session.rollback()
+
+            return None, (
+                f"Failed to claim workspace computation: {exc}"
+            )
+
+        # -----------------------------------------------------
+        # We are the sole computation owner.
+        # -----------------------------------------------------
+
+        try:
+            result = self.computation.compute(
+                query=question.question,
+                operation=operation,
+                provider=provider,
+            )
+
+            engine = result.get("engine") or provider
+
+            if result.get("success"):
+                serializable_result = self._make_json_safe(result)
+
+                solution.engine = engine
+                solution.status = "completed"
+                solution.result_json = json.dumps(
+                    serializable_result,
+                    ensure_ascii=False,
+                )
+                solution.error_message = None
+
+                db.session.commit()
+
+                return {
+                    "cached": False,
+                    "solution_id": solution.id,
+                    "workspace_question_id": question.id,
+                    "engine": solution.engine,
+                    "status": solution.status,
+                    "result": serializable_result,
+                    "error_message": None,
+                }, None
+
+            # -------------------------------------------------
+            # Failed computation
+            # -------------------------------------------------
+            #
+            # Keep the row as failed state so waiting requests
+            # can see that the computation finished unsuccessfully.
+            #
+            # It is NOT considered a cache because only
+            # status="completed" is returned as cached above.
+            # -------------------------------------------------
+
+            safe_result = self._make_json_safe(result)
+
+            solution.engine = engine
+            solution.status = "failed"
+            solution.result_json = json.dumps(
+                safe_result,
+                ensure_ascii=False,
+            )
+            solution.error_message = result.get("error")
+
+            db.session.commit()
+
+            return {
+                "cached": False,
+                "solution_id": solution.id,
+                "workspace_question_id": question.id,
+                "engine": engine,
+                "status": "failed",
+                "result": safe_result,
+                "error_message": result.get("error"),
+            }, None
+
+        except Exception as exc:
+            # -------------------------------------------------
+            # Unexpected computation failure
+            # -------------------------------------------------
+
+            db.session.rollback()
+
+            # Re-fetch because rollback expires the object.
+            failed_solution = WorkspaceQuestionSolution.query.filter_by(
+                workspace_question_id=question.id
+            ).first()
+
+            if failed_solution:
+                failed_solution.status = "failed"
+                failed_solution.error_message = str(exc)
+
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+
+            return {
+                "cached": False,
+                "solution_id": (
+                    failed_solution.id
+                    if failed_solution
+                    else None
+                ),
+                "workspace_question_id": question.id,
+                "engine": provider,
+                "status": "failed",
+                "result": None,
+                "error_message": str(exc),
+            }, None
+
+    # =========================================================
+    # WAIT FOR EXISTING COMPUTATION
+    # =========================================================
+
+    def _wait_for_computation(self, question_id: int):
+        """
+        Wait for another request that currently owns the
+        computation.
+
+        The waiting request never invokes the computation engine.
+        It only observes the database state.
+        """
+
+        deadline = (
+            time.monotonic()
+            + self.COMPUTATION_WAIT_SECONDS
+        )
+
+        while time.monotonic() < deadline:
+            # Make sure the current SQLAlchemy session sees fresh
+            # database state.
+            db.session.expire_all()
+
+            solution = WorkspaceQuestionSolution.query.filter_by(
+                workspace_question_id=question_id
+            ).first()
+
+            if solution is None:
+                # The worker disappeared before creating a final
+                # state. Give the caller a clear response rather
+                # than invoking the engine itself.
+                return {
+                    "cached": False,
+                    "solution_id": None,
+                    "workspace_question_id": question_id,
+                    "engine": None,
+                    "status": "failed",
+                    "result": None,
+                    "error_message": (
+                        "Workspace computation ended unexpectedly."
+                    ),
+                }, None
+
+            if solution.status == "completed":
+                result = self._decode_result(
+                    solution.result_json
+                )
+
+                return {
+                    "cached": True,
+                    "solution_id": solution.id,
+                    "workspace_question_id": question_id,
+                    "engine": solution.engine,
+                    "status": "completed",
+                    "result": result,
+                    "error_message": solution.error_message,
+                }, None
+
+            if solution.status == "failed":
+                result = self._decode_result(
+                    solution.result_json
+                )
+
+                return {
+                    "cached": False,
+                    "solution_id": solution.id,
+                    "workspace_question_id": question_id,
+                    "engine": solution.engine,
+                    "status": "failed",
+                    "result": result,
+                    "error_message": solution.error_message,
+                }, None
+
+            time.sleep(self.POLL_INTERVAL_SECONDS)
+
+        # -----------------------------------------------------
+        # Computation exceeded the waiting period.
+        # -----------------------------------------------------
+
+        return {
+            "cached": False,
+            "solution_id": None,
+            "workspace_question_id": question_id,
+            "engine": None,
+            "status": "computing",
+            "result": None,
+            "error_message": (
+                "Computation is still in progress. "
+                "Please try again shortly."
+            ),
+        }, None
+
+    # =========================================================
+    # JSON SERIALIZATION
+    # =========================================================
+
+    @classmethod
+    def _make_json_safe(cls, value):
+        if value is None:
+            return None
+
+        if isinstance(value, (str, int, float, bool)):
+            return value
+
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+
+        if isinstance(value, dict):
+            return {
+                str(key): cls._make_json_safe(item)
+                for key, item in value.items()
+            }
+
+        if isinstance(value, (list, tuple)):
+            return [
+                cls._make_json_safe(item)
+                for item in value
+            ]
+
+        if isinstance(value, set):
+            return [
+                cls._make_json_safe(item)
+                for item in value
+            ]
+
+        try:
+            json.dumps(value)
+            return value
+        except (TypeError, ValueError):
+            return str(value)
+
+    # =========================================================
+    # RESULT DECODING
+    # =========================================================
+
+    @staticmethod
+    def _decode_result(value):
+        if not value:
+            return None
+
+        try:
+            return json.loads(value)
+        except (TypeError, ValueError):
+            return value
+
+===== WORKSPACE SOLUTION SERVICES: workspace_solution_services.py =====
+import json
+from datetime import datetime
+
+from sqlalchemy.exc import IntegrityError
+
+from database.db import db
+from database.models import (
+    User,
+    Workspace,
+    WorkspaceMember,
+    WorkspaceSettings,
+    WorkspaceQuestion,
+    WorkspaceQuestionSolution,
+    WorkspaceQuestionAttempt,
+    WorkspaceQuestionFollowUp,
+)
+
+
+def _get_workspace_member(username, workspace_id):
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return None, None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, None, "You are not a member of this workspace"
+
+    return user, membership, None
+
+
+def _can_access_question(user, membership, question):
+    if question.visibility == "private":
+        return (
+            membership.role == "admin"
+            or question.author_id == user.id
+        )
+
+    return True
+
+
+def get_cached_workspace_solution(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+):
+    user, membership, error = _get_workspace_member(
+        username,
+        workspace_id,
+    )
+
+    if error:
+        return None, error
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    if not _can_access_question(user, membership, question):
+        return None, "Workspace question not found"
+
+    solution = WorkspaceQuestionSolution.query.filter_by(
+        workspace_question_id=question.id,
+    ).first()
+
+    if not solution:
+        return None, None
+
+    result = None
+
+    if solution.result_json:
+        try:
+            result = json.loads(solution.result_json)
+        except (TypeError, ValueError):
+            result = solution.result_json
+
+    return {
+        "id": solution.id,
+        "workspace_question_id": solution.workspace_question_id,
+        "engine": solution.engine,
+        "status": solution.status,
+        "result": result,
+        "error_message": solution.error_message,
+        "created_at": (
+            solution.created_at.isoformat()
+            if solution.created_at
+            else None
+        ),
+        "updated_at": (
+            solution.updated_at.isoformat()
+            if solution.updated_at
+            else None
+        ),
+    }, None
+
+
+def store_workspace_question_solution(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+    engine: str,
+    result,
+):
+    user, membership, error = _get_workspace_member(
+        username,
+        workspace_id,
+    )
+
+    if error:
+        return None, error
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    if not _can_access_question(user, membership, question):
+        return None, "Workspace question not found"
+
+    existing = WorkspaceQuestionSolution.query.filter_by(
+        workspace_question_id=question.id,
+    ).first()
+
+    if existing:
+        return {
+            "id": existing.id,
+            "workspace_question_id": existing.workspace_question_id,
+            "engine": existing.engine,
+            "status": existing.status,
+            "result": (
+                json.loads(existing.result_json)
+                if existing.result_json
+                else None
+            ),
+        }, None
+
+    solution = WorkspaceQuestionSolution(
+        workspace_question_id=question.id,
+        engine=engine,
+        status="completed",
+        result_json=json.dumps(
+            result,
+            ensure_ascii=False,
+        ),
+        error_message=None,
+    )
+
+    try:
+        db.session.add(solution)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+
+        existing = WorkspaceQuestionSolution.query.filter_by(
+            workspace_question_id=question.id,
+        ).first()
+
+        if not existing:
+            return None, "Failed to store workspace question solution"
+
+        return {
+            "id": existing.id,
+            "workspace_question_id": existing.workspace_question_id,
+            "engine": existing.engine,
+            "status": existing.status,
+            "result": (
+                json.loads(existing.result_json)
+                if existing.result_json
+                else None
+            ),
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to store workspace question solution"
+
+    return {
+        "id": solution.id,
+        "workspace_question_id": solution.workspace_question_id,
+        "engine": solution.engine,
+        "status": solution.status,
+        "result": result,
+    }, None
+
+
+def create_workspace_question_attempt(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+    mode="solver",
+    submitted_answer=None,
+):
+    user, membership, error = _get_workspace_member(
+        username,
+        workspace_id,
+    )
+
+    if error:
+        return None, error
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    if not _can_access_question(user, membership, question):
+        return None, "Workspace question not found"
+
+    settings = WorkspaceSettings.query.filter_by(
+        workspace_id=workspace_id,
+    ).first()
+
+    if not settings:
+        return None, "Workspace settings not found"
+
+    if membership.role != "admin" and not settings.allow_member_solving:
+        return None, "Members are not allowed to solve questions"
+
+    if mode not in {"solver", "assessment", "mcq"}:
+        return None, "Invalid attempt mode"
+
+    attempt = WorkspaceQuestionAttempt(
+        workspace_question_id=question.id,
+        user_id=user.id,
+        mode=mode,
+        submitted_answer=submitted_answer,
+        solution_revealed=False,
+    )
+
+    try:
+        db.session.add(attempt)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace question attempt"
+
+    return {
+        "id": attempt.id,
+        "workspace_question_id": attempt.workspace_question_id,
+        "user_id": attempt.user_id,
+        "mode": attempt.mode,
+        "submitted_answer": attempt.submitted_answer,
+        "score": attempt.score,
+        "solution_revealed": attempt.solution_revealed,
+        "started_at": (
+            attempt.started_at.isoformat()
+            if attempt.started_at
+            else None
+        ),
+        "completed_at": None,
+    }, None
+
+
+def complete_workspace_question_attempt(
+    username: str,
+    workspace_id: int,
+    attempt_id: int,
+    result=None,
+    score=None,
+    solution_revealed=False,
+):
+    user, membership, error = _get_workspace_member(
+        username,
+        workspace_id,
+    )
+
+    if error:
+        return None, error
+
+    attempt = WorkspaceQuestionAttempt.query.filter_by(
+        id=attempt_id,
+    ).first()
+
+    if not attempt:
+        return None, "Workspace question attempt not found"
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=attempt.workspace_question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    if not _can_access_question(user, membership, question):
+        return None, "Workspace question not found"
+
+    if attempt.user_id != user.id and membership.role != "admin":
+        return None, "You cannot modify this attempt"
+
+    attempt.result_json = (
+        json.dumps(result, ensure_ascii=False)
+        if result is not None
+        else None
+    )
+
+    attempt.score = score
+    attempt.solution_revealed = bool(solution_revealed)
+    attempt.completed_at = datetime.utcnow()
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to complete workspace question attempt"
+
+    return {
+        "id": attempt.id,
+        "workspace_question_id": attempt.workspace_question_id,
+        "user_id": attempt.user_id,
+        "mode": attempt.mode,
+        "score": attempt.score,
+        "solution_revealed": attempt.solution_revealed,
+        "completed_at": (
+            attempt.completed_at.isoformat()
+            if attempt.completed_at
+            else None
+        ),
+    }, None
+
+
+def create_workspace_question_followup(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+    followup_question: str,
+    answer=None,
+    engine=None,
+):
+    user, membership, error = _get_workspace_member(
+        username,
+        workspace_id,
+    )
+
+    if error:
+        return None, error
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    if not _can_access_question(user, membership, question):
+        return None, "Workspace question not found"
+
+    if not isinstance(followup_question, str):
+        return None, "Follow-up question must be a string"
+
+    followup_question = followup_question.strip()
+
+    if not followup_question:
+        return None, "Follow-up question cannot be empty"
+
+    if len(followup_question) > 10000:
+        return None, "Follow-up question is too long"
+
+    followup = WorkspaceQuestionFollowUp(
+        workspace_question_id=question.id,
+        user_id=user.id,
+        question=followup_question,
+        answer=answer,
+        engine=engine,
+    )
+
+    try:
+        db.session.add(followup)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to create workspace question follow-up"
+
+    return {
+        "id": followup.id,
+        "workspace_question_id": followup.workspace_question_id,
+        "user_id": followup.user_id,
+        "question": followup.question,
+        "answer": followup.answer,
+        "engine": followup.engine,
+        "created_at": (
+            followup.created_at.isoformat()
+            if followup.created_at
+            else None
+        ),
+    }, None
+
+
+def get_workspace_question_attempts(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+):
+    user, membership, error = _get_workspace_member(
+        username,
+        workspace_id,
+    )
+
+    if error:
+        return None, error
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+        status="active",
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    if not _can_access_question(user, membership, question):
+        return None, "Workspace question not found"
+
+    query = WorkspaceQuestionAttempt.query.filter_by(
+        workspace_question_id=question.id,
+    )
+
+    if membership.role != "admin":
+        query = query.filter_by(
+            user_id=user.id,
+        )
+
+    attempts = query.order_by(
+        WorkspaceQuestionAttempt.started_at.desc()
+    ).all()
+
+    return [
+        {
+            "id": attempt.id,
+            "workspace_question_id": attempt.workspace_question_id,
+            "user_id": attempt.user_id,
+            "mode": attempt.mode,
+            "submitted_answer": attempt.submitted_answer,
+            "result": (
+                json.loads(attempt.result_json)
+                if attempt.result_json
+                else None
+            ),
+            "score": attempt.score,
+            "solution_revealed": attempt.solution_revealed,
+            "started_at": (
+                attempt.started_at.isoformat()
+                if attempt.started_at
+                else None
+            ),
+            "completed_at": (
+                attempt.completed_at.isoformat()
+                if attempt.completed_at
+                else None
+            ),
+        }
+        for attempt in attempts
+    ], None

@@ -1,0 +1,24 @@
+﻿
+> client\src\App.tsx:426:function NovaAI({ user, onLogout 
+}: { user: User; onLogout: () => void }) {
+  client\src\App.tsx:427:  const [sidebarOpen, 
+setSidebarOpen] = useState(() => (
+  client\src\App.tsx:428:    typeof window === 
+"undefined" ? true : 
+window.matchMedia(DESKTOP_SIDEBAR_QUERY).matches
+  client\src\App.tsx:429:  ));
+> client\src\App.tsx:1055:function WorkspacePanel({
+  client\src\App.tsx:1056:  user,
+  client\src\App.tsx:1057:  onBack,
+  client\src\App.tsx:1058:}: {
+> client\src\App.tsx:1983:function 
+WorkspaceSettingsPanel({
+  client\src\App.tsx:1984:  workspace,
+  client\src\App.tsx:1985:  settings,
+  client\src\App.tsx:1986:  enabled,
+> client\src\App.tsx:2107:function Composer({
+  client\src\App.tsx:2108:  value,
+  client\src\App.tsx:2109:  onChange,
+  client\src\App.tsx:2110:  onSubmit,
+
+

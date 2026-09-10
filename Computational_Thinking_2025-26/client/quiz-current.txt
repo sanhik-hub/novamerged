@@ -1,0 +1,126 @@
+﻿function Quiz({
+  question,
+  current,
+  total,
+  progress,
+  selected,
+  showHint,
+  finalQuestion = false,
+  learnAgain = false,
+  onSelect,
+  onHint,
+  onNext,
+  onPrevious,
+}: {
+  question: Question;
+  current: number;
+  total: number;
+  progress: number;
+  selected: number | null;
+  showHint: boolean;
+  finalQuestion?: boolean;
+  learnAgain?: boolean;
+  onSelect: (option: number) => void;
+  onHint: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+}) {
+  return (
+    <motion.div className="quiz-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <motion.div className="quiz-header" initial={{ y: -14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.35 }}>
+        <span>
+          {finalQuestion
+            ? "Your original question"
+            : learnAgain
+              ? `Learn Again · Question ${current + 1} of ${total}`
+              : `Question ${current + 1} of ${total}`}
+        </span>
+        {!finalQuestion && <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>}
+      </motion.div>
+
+      <motion.section className="quiz-card" layout transition={{ type: "spring", stiffness: 170, damping: 24 }}>
+      {question.coordinates && question.coordinates.length > 0 && <GraphCanvas coordinates={question.coordinates} />}
+        <h1><MathText>{question.question}</MathText></h1>
+        <motion.div className="options" role="radiogroup" aria-label="Answer options" variants={{ show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show">
+          {question.options.map((option, index) => {
+            const number = index + 1;
+            const selectedClass = selected === number ? " selected" : "";
+            return (
+              <motion.button
+                key={`${number}-${option}`}
+                variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
+                whileHover={{ scale: 1.018, x: 5 }}
+                whileTap={{ scale: 0.985 }}
+                type="button"
+                role="radio"
+                aria-checked={selected === number}
+                className={`option${selectedClass}`}
+                onClick={() => onSelect(number)}
+              >
+                <span className="option-letter">{String.fromCharCode(64 + number)}</span>
+                <MathText>{option}</MathText>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        <div className="hint-area">
+          {!showHint ? (
+            <button type="button" className="hint-button" onClick={onHint}>💡 Need a hint?</button>
+          ) : (
+            <motion.div className="hint" initial={{ opacity: 0, height: 0, y: 8 }} animate={{ opacity: 1, height: "auto", y: 0 }} transition={{ type: "spring", stiffness: 170, damping: 20 }}>
+              <strong>💡 Hint</strong>
+              <MathText>{question.hint}</MathText>
+            </motion.div>
+          )}
+        </div>
+
+        <div className="quiz-actions">
+          {current > 0 || finalQuestion ? (
+            <button type="button" className="secondary" onClick={onPrevious}>← Previous</button>
+          ) : <span />}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.035, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            className="primary"
+            onClick={onNext}
+            disabled={selected == null}
+          >
+            {finalQuestion ? "Submit Answer" : current === total - 1 ? "Finish →" : "Next →"}
+          </motion.button>
+        </div>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+type ReviewItem = {
+  question: Question;
+  index: number;
+  selected: number | null;
+  correct: boolean;
+};
+
+function QuestionReview({
+  review,
+  loadingIndex,
+  onLearnAgain,
+  hideLearnAgain = false,
+}: {
+  review: ReviewItem[];
+  loadingIndex: number | null;
+  onLearnAgain: (question: Question, index: number) => void;
+  hideLearnAgain?: boolean;
+}) {
+  return (
+    <section className="review-section" aria-labelledby="review-title">
+      <div className="review-heading">
+        <div>
+          <span className="eyebrow">Performance</span>
+          <h2 id="review-title">Question Review</h2>
+        </div>
+        <span className="review-count">{review.length} questions</span>
+      </div>
+
+      <div className="review-list">

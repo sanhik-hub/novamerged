@@ -299,11 +299,6 @@ class WorkspaceQuestionAttempt(db.Model):
         default="solver",
     )
 
-    status = db.Column(
-        db.String(20),
-        nullable=False,
-        default="active",
-    )
     submitted_answer = db.Column(
         db.Text,
         nullable=True,

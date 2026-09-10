@@ -248,7 +248,6 @@ def create_workspace_question_attempt(
         workspace_question_id=question.id,
         user_id=user.id,
         mode=mode,
-        status="active",
         submitted_answer=submitted_answer,
         solution_revealed=False,
     )
@@ -265,7 +264,6 @@ def create_workspace_question_attempt(
         "workspace_question_id": attempt.workspace_question_id,
         "user_id": attempt.user_id,
         "mode": attempt.mode,
-        "status": attempt.status,
         "submitted_answer": attempt.submitted_answer,
         "score": attempt.score,
         "solution_revealed": attempt.solution_revealed,
@@ -316,8 +314,6 @@ def complete_workspace_question_attempt(
     if attempt.user_id != user.id and membership.role != "admin":
         return None, "You cannot modify this attempt"
 
-    if attempt.status != "active":
-        return None, "Workspace question attempt is no longer active"
     attempt.result_json = (
         json.dumps(result, ensure_ascii=False)
         if result is not None
@@ -326,8 +322,7 @@ def complete_workspace_question_attempt(
 
     attempt.score = score
     attempt.solution_revealed = bool(solution_revealed)
-    attempt.completed_at = datetime.now(datetime.timezone.utc)
-    attempt.status = "completed"
+    attempt.completed_at = datetime.utcnow()
 
     try:
         db.session.commit()
@@ -340,7 +335,6 @@ def complete_workspace_question_attempt(
         "workspace_question_id": attempt.workspace_question_id,
         "user_id": attempt.user_id,
         "mode": attempt.mode,
-        "status": attempt.status,
         "score": attempt.score,
         "solution_revealed": attempt.solution_revealed,
         "completed_at": (
@@ -464,7 +458,6 @@ def get_workspace_question_attempts(
             "workspace_question_id": attempt.workspace_question_id,
             "user_id": attempt.user_id,
             "mode": attempt.mode,
-            "status": attempt.status,
             "submitted_answer": attempt.submitted_answer,
             "result": (
                 json.loads(attempt.result_json)
@@ -486,100 +479,3 @@ def get_workspace_question_attempts(
         }
         for attempt in attempts
     ], None
-
-def _close_workspace_question_attempt(
-    username: str,
-    workspace_id: int,
-    attempt_id: int,
-    status: str,
-):
-    user, membership, error = _get_workspace_member(
-        username,
-        workspace_id,
-    )
-
-    if error:
-        return None, error
-
-    if status not in {"exited", "terminated"}:
-        return None, "Invalid attempt status"
-
-    attempt = WorkspaceQuestionAttempt.query.filter_by(
-        id=attempt_id,
-    ).first()
-
-    if not attempt:
-        return None, "Workspace question attempt not found"
-
-    question = WorkspaceQuestion.query.filter_by(
-        id=attempt.workspace_question_id,
-        workspace_id=workspace_id,
-        status="active",
-    ).first()
-
-    if not question:
-        return None, "Workspace question not found"
-
-    if not _can_access_question(user, membership, question):
-        return None, "Workspace question not found"
-
-    if attempt.user_id != user.id and membership.role != "admin":
-        return None, "You cannot modify this attempt"
-
-    if attempt.status != "active":
-        return None, "Workspace question attempt is no longer active"
-
-    attempt.status = status
-    attempt.completed_at = datetime.utcnow()
-
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        return None, "Failed to update workspace question attempt"
-
-    return {
-        "id": attempt.id,
-        "workspace_question_id": attempt.workspace_question_id,
-        "user_id": attempt.user_id,
-        "mode": attempt.mode,
-        "status": attempt.status,
-        "score": attempt.score,
-        "solution_revealed": attempt.solution_revealed,
-        "started_at": (
-            attempt.started_at.isoformat()
-            if attempt.started_at
-            else None
-        ),
-        "completed_at": (
-            attempt.completed_at.isoformat()
-            if attempt.completed_at
-            else None
-        ),
-    }, None
-
-
-def exit_workspace_question_attempt(
-    username: str,
-    workspace_id: int,
-    attempt_id: int,
-):
-    return _close_workspace_question_attempt(
-        username=username,
-        workspace_id=workspace_id,
-        attempt_id=attempt_id,
-        status="exited",
-    )
-
-
-def terminate_workspace_question_attempt(
-    username: str,
-    workspace_id: int,
-    attempt_id: int,
-):
-    return _close_workspace_question_attempt(
-        username=username,
-        workspace_id=workspace_id,
-        attempt_id=attempt_id,
-        status="terminated",
-    )

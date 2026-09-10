@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   login,
@@ -24,8 +24,9 @@ import {
   getWorkspaceQuestions,
   getWorkspaceQuestionDetails,
   getWorkspaceQuestionSolution,
-  computeWorkspaceQuestion,
+
   createWorkspaceAttempt,
+  completeWorkspaceAttempt,
   getWorkspaceQuestionAttempts,
   postWorkspaceQuestionFollowUp,
 } from "./services/api";
@@ -72,18 +73,18 @@ const quotes = [
 
 // Floating math symbols for decorative background
 const MATH_SYMBOLS = [
-  { char: "∑", size: 110, left: 5,  delay: 0,    duration: 18 },
-  { char: "∫", size: 130, left: 15, delay: 3,    duration: 22 },
-  { char: "π",  size: 95,  left: 28, delay: 6,    duration: 16 },
-  { char: "√",  size: 105, left: 42, delay: 1.5,  duration: 20 },
-  { char: "∞",  size: 90,  left: 58, delay: 9,    duration: 25 },
-  { char: "Δ",  size: 100, left: 72, delay: 4,    duration: 19 },
-  { char: "θ",  size: 85,  left: 85, delay: 7,    duration: 21 },
-  { char: "λ",  size: 115, left: 93, delay: 2,    duration: 17 },
-  { char: "∂",  size: 92,  left: 35, delay: 11,   duration: 23 },
-  { char: "≠",  size: 88,  left: 65, delay: 5,    duration: 15 },
-  { char: "∇",  size: 108, left: 50, delay: 13,   duration: 24 },
-  { char: "∈",  size: 82,  left: 78, delay: 8,    duration: 20 },
+  { char: "âˆ‘", size: 110, left: 5,  delay: 0,    duration: 18 },
+  { char: "âˆ«", size: 130, left: 15, delay: 3,    duration: 22 },
+  { char: "Ï€",  size: 95,  left: 28, delay: 6,    duration: 16 },
+  { char: "âˆš",  size: 105, left: 42, delay: 1.5,  duration: 20 },
+  { char: "âˆž",  size: 90,  left: 58, delay: 9,    duration: 25 },
+  { char: "Î”",  size: 100, left: 72, delay: 4,    duration: 19 },
+  { char: "Î¸",  size: 85,  left: 85, delay: 7,    duration: 21 },
+  { char: "Î»",  size: 115, left: 93, delay: 2,    duration: 17 },
+  { char: "âˆ‚",  size: 92,  left: 35, delay: 11,   duration: 23 },
+  { char: "â‰ ",  size: 88,  left: 65, delay: 5,    duration: 15 },
+  { char: "âˆ‡",  size: 108, left: 50, delay: 13,   duration: 24 },
+  { char: "âˆˆ",  size: 82,  left: 78, delay: 8,    duration: 20 },
 ];
 
 function MathBackground() {
@@ -267,7 +268,7 @@ function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => v
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.15 }}
         >
-          <span className="logo-icon">∑</span>
+          <span className="logo-icon">âˆ‘</span>
           Stepwise Prism AI
         </motion.div>
 
@@ -277,7 +278,7 @@ function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => v
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
-          f(x) = ∫₀ˣ g(t) dt &nbsp;·&nbsp; lim(n→∞) (1 + 1/n)ⁿ = e &nbsp;·&nbsp; ∇²φ = ρ/ε₀
+          f(x) = âˆ«â‚€Ë£ g(t) dt &nbsp;Â·&nbsp; lim(nâ†’âˆž) (1 + 1/n)â¿ = e &nbsp;Â·&nbsp; âˆ‡Â²Ï† = Ï/Îµâ‚€
         </motion.p>
 
         <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
@@ -297,11 +298,11 @@ function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => v
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.65 }}
         >
-          <span className="landing-pill"><span>∑</span>Scaffolded MCQs</span>
-          <span className="landing-pill"><span>∫</span>Step-by-step hints</span>
-          <span className="landing-pill"><span>π</span>Graph mode</span>
-          <span className="landing-pill"><span>Δ</span>Learn Again</span>
-          <span className="landing-pill"><span>√</span>AI-powered feedback</span>
+          <span className="landing-pill"><span>âˆ‘</span>Scaffolded MCQs</span>
+          <span className="landing-pill"><span>âˆ«</span>Step-by-step hints</span>
+          <span className="landing-pill"><span>Ï€</span>Graph mode</span>
+          <span className="landing-pill"><span>Î”</span>Learn Again</span>
+          <span className="landing-pill"><span>âˆš</span>AI-powered feedback</span>
         </motion.div>
       </motion.div>
     </motion.main>
@@ -337,7 +338,7 @@ function Auth({
     }
 
     if (!isLogin && (standard === "" || standard < 6 || standard > 12)) {
-      setError("Please select your class (6 – 12).");
+      setError("Please select your class (6 â€“ 12).");
       return;
     }
 
@@ -361,9 +362,9 @@ function Auth({
     <motion.main className="auth-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
       <MathBackground />
       <motion.form className="auth-card" onSubmit={submit} initial={{ opacity: 0, y: 35, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 100, damping: 16 }}>
-        <motion.button type="button" className="back" onClick={onBack} whileHover={{ x: -4 }} whileTap={{ scale: 0.96 }}>← Back</motion.button>
+        <motion.button type="button" className="back" onClick={onBack} whileHover={{ x: -4 }} whileTap={{ scale: 0.96 }}>â† Back</motion.button>
         <motion.div className="logo" initial={{ scale: 0.7, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 160 }}>
-          <span className="logo-icon">∑</span>
+          <span className="logo-icon">âˆ‘</span>
           Stepwise Prism AI
         </motion.div>
         <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>{isLogin ? "Welcome back" : "Create your account"}</motion.h1>
@@ -796,13 +797,13 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
 <motion.aside className="sidebar" aria-hidden={!sidebarOpen} initial={false} animate={{ opacity: sidebarOpen ? 1 : 0.85 }} transition={{ type: "spring", stiffness: 240, damping: 26 }}>
       
         <div className="brand">
-          <span className="brand-icon">∑</span>
+          <span className="brand-icon">âˆ‘</span>
           <span className="brand-name"><span>Stepwise</span><span>Prism AI</span></span>
         </div>
                 <button type="button" className="workspace-button" onClick={openWorkspace}>
           Workspaces
         </button>
-<button className="new-chat" onClick={newChat}>＋ New Chat</button>
+<button className="new-chat" onClick={newChat}>ï¼‹ New Chat</button>
 
         <div className="mode-switcher" aria-label="Question mode">
           <button
@@ -854,15 +855,15 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
         {stage === "home" && (
           <motion.div key="home" className="home-content" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45, ease: "easeOut" }}>
             <div className="welcome">
-              <h1>Hi, {user.username} 👋</h1>
-              <p>“{quote}”</p>
+              <h1>Hi, {user.username} ðŸ‘‹</h1>
+              <p>â€œ{quote}â€</p>
             </div>
 
             <div className="composer-wrapper">
               {imagePreview && (
                 <div className="image-preview">
                   <img src={imagePreview} alt="Selected question preview" />
-                  <button type="button" onClick={removeImage} aria-label="Remove image">×</button>
+                  <button type="button" onClick={removeImage} aria-label="Remove image">Ã—</button>
                 </div>
               )}
 
@@ -988,8 +989,8 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
           <motion.div key="evaluation" className="result-card final-result" initial={{ opacity: 0, scale: 0.82, y: 35 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ type: "spring", stiffness: 120, damping: 16 }}>
             {finalAnswer === originalQuestion.correct_option ? (
               <>
-                <div className="result-icon correct-icon">✓</div>
-                <h1>Correct! 🎉</h1>
+                <div className="result-icon correct-icon">âœ“</div>
+                <h1>Correct! ðŸŽ‰</h1>
                 <p>
                   Correct answer:{" "}
                   <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
@@ -998,7 +999,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
               </>
             ) : (
               <>
-                <div className="result-icon incorrect-icon">×</div>
+                <div className="result-icon incorrect-icon">Ã—</div>
                 <h1>Not quite.</h1>
                 <p>
                   Correct answer:{" "}
@@ -1076,12 +1077,24 @@ function WorkspacePanel({
   const [questionType, setQuestionType] = useState("solver");
   const [visibility, setVisibility] = useState("public");
   const [followUp, setFollowUp] = useState("");
-  const [computationProvider, setComputationProvider] = useState("wolfram");
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "questions" | "members" | "invitations" | "settings">("dashboard");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Gemini-powered Workspace attempt state.
+  const [attemptModalOpen, setAttemptModalOpen] = useState(false);
+  const [attemptLoading, setAttemptLoading] = useState(false);
+  const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [attemptResponse, setAttemptResponse] =
+    useState<QuestionResponse | null>(null);
+  const [attemptCurrent, setAttemptCurrent] = useState(0);
+  const [attemptAnswers, setAttemptAnswers] =
+    useState<Record<number, number>>({});
+  const [attemptHint, setAttemptHint] = useState(false);
+  const [attemptFinished, setAttemptFinished] = useState(false);
+  const [attemptScore, setAttemptScore] = useState<number | null>(null);
 
   async function loadWorkspaces() {
     setBusy(true);
@@ -1265,50 +1278,184 @@ function WorkspacePanel({
   }
 
   async function computeQuestion() {
-    if (!selectedWorkspace?.id || !selectedQuestion?.id) return;
+    if (!selectedQuestion?.question) return;
 
-    setBusy(true);
+    setAttemptLoading(true);
     setError("");
     setMessage("");
 
     try {
-      const response = await computeWorkspaceQuestion({
-        workspace_id: Number(selectedWorkspace.id),
-        question_id: Number(selectedQuestion.id),
-        operation: "compute",
-        provider: computationProvider,
-      });
+      const rawResponse = await postQuestion(
+        user.username,
+        selectedQuestion.question,
+      );
 
-      const result = response as WorkspaceSolution;
-      setSolution(result);
-      setMessage("Computation completed.");
+      const response = validateQuestionResponse(rawResponse);
+
+      if (!response || response.is_relevant !== true) {
+        throw new Error(
+          response?.error_message ||
+          "Gemini could not process this Workspace question.",
+        );
+      }
+
+      setAttemptResponse(response);
+      setSolution({
+        engine: "gemini",
+        status: "completed",
+        result_json: response,
+      } as WorkspaceSolution);
+
+      setMessage("Gemini solution prepared.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Computation failed.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gemini computation failed.",
+      );
     } finally {
-      setBusy(false);
+      setAttemptLoading(false);
     }
   }
 
   async function createAttempt() {
     if (!selectedWorkspace?.id || !selectedQuestion?.id) return;
 
-    setBusy(true);
+    setAttemptLoading(true);
+    setError("");
+    setMessage("");
+    setAttemptFinished(false);
+    setAttemptScore(null);
+    setAttemptAnswers({});
+    setAttemptCurrent(0);
+    setAttemptHint(false);
+    setAttemptResponse(null);
 
     try {
-      await createWorkspaceAttempt(Number(selectedWorkspace.id), Number(selectedQuestion.id), "solver", "");
+      const attempt = await createWorkspaceAttempt(
+        Number(selectedWorkspace.id),
+        Number(selectedQuestion.id),
+        "solver",
+        "",
+      );
+
+      const createdAttempt = attempt.data as WorkspaceAttempt;
+
+      if (createdAttempt?.id != null) {
+        setAttemptId(Number(createdAttempt.id));
+      }
+
+      /*
+       * IMPORTANT:
+       * Workspace uses the same Gemini-backed /QuestionPost
+       * endpoint as Standard mode.
+       *
+       * No Wolfram.
+       * No SymPy.
+       * No local LLM.
+       */
+      const rawResponse = await postQuestion(
+        user.username,
+        selectedQuestion.question,
+      );
+
+      const response = validateQuestionResponse(rawResponse);
+
+      if (!response || response.is_relevant !== true) {
+        throw new Error(
+          response?.error_message ||
+          "Gemini could not prepare this attempt.",
+        );
+      }
+
+      setAttemptResponse(response);
+      setAttemptModalOpen(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to start the Workspace attempt.",
+      );
+    } finally {
+      setAttemptLoading(false);
+    }
+  }
+
+  function chooseWorkspaceAttemptAnswer(option: number) {
+    setAttemptAnswers((previous) => ({
+      ...previous,
+      [attemptCurrent]: option,
+    }));
+  }
+
+  async function finishWorkspaceAttempt() {
+    if (
+      !selectedWorkspace?.id ||
+      attemptId == null ||
+      !attemptResponse
+    ) {
+      return;
+    }
+
+    const generatedQuestions = attemptResponse.ai_questions ?? [];
+
+    const finalScore = generatedQuestions.reduce(
+      (total, item, index) =>
+        total +
+        (attemptAnswers[index] === item.correct_option ? 1 : 0),
+      0,
+    );
+
+    setAttemptScore(finalScore);
+    setAttemptFinished(true);
+    setAttemptHint(false);
+
+    try {
+      await completeWorkspaceAttempt(
+        Number(selectedWorkspace.id),
+        Number(attemptId),
+        JSON.stringify(attemptAnswers),
+        finalScore,
+        true,
+      );
 
       const response = await getWorkspaceQuestionAttempts(
         Number(selectedWorkspace.id),
-        Number(selectedQuestion.id),
+        Number(selectedQuestion?.id),
       );
 
-      setAttempts(Array.isArray(response.data) ? response.data : []);
-      setMessage("Attempt started.");
+      setAttempts(
+        Array.isArray(response.data)
+          ? response.data
+          : [],
+      );
+
+      setMessage("Attempt completed and recorded.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start attempt.");
-    } finally {
-      setBusy(false);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "The result was shown, but the attempt could not be recorded.",
+      );
     }
+  }
+
+  function nextWorkspaceAttemptQuestion() {
+    if (!attemptResponse) return;
+
+    const total = attemptResponse.ai_questions.length;
+
+    if (attemptAnswers[attemptCurrent] == null) {
+      return;
+    }
+
+    if (attemptCurrent >= total - 1) {
+      void finishWorkspaceAttempt();
+      return;
+    }
+
+    setAttemptHint(false);
+    setAttemptCurrent((current) => current + 1);
   }
 
   async function sendFollowUp() {
@@ -1531,7 +1678,7 @@ function WorkspacePanel({
                   <strong>{workspace.name}</strong>
                   <span>
                     {workspace.role ?? "member"}
-                    {workspace.join_code ? ` · ${workspace.join_code}` : ""}
+                    {workspace.join_code ? ` Â· ${workspace.join_code}` : ""}
                   </span>
                 </button>
               ))
@@ -1542,7 +1689,7 @@ function WorkspacePanel({
         <section className="workspace-card workspace-main-card">
           {!selectedWorkspace ? (
             <div className="workspace-empty workspace-empty-large">
-              <div className="workspace-empty-icon">∑</div>
+              <div className="workspace-empty-icon">âˆ‘</div>
               <h2>Select a workspace</h2>
               <p>
                 Create or join a workspace to access questions, members,
@@ -1558,7 +1705,7 @@ function WorkspacePanel({
                   <span>
                     Role: {selectedWorkspace.role ?? "member"}
                     {selectedWorkspace.join_code
-                      ? ` · Join code: ${selectedWorkspace.join_code}`
+                      ? ` Â· Join code: ${selectedWorkspace.join_code}`
                       : ""}
                   </span>
                 </div>
@@ -1708,7 +1855,7 @@ function WorkspacePanel({
                           >
                             <strong>{question.question}</strong>
                             <span>
-                              {question.question_type ?? "solver"} ·{" "}
+                              {question.question_type ?? "solver"} Â·{" "}
                               {question.visibility ?? "public"}
                             </span>
                           </button>
@@ -1733,42 +1880,39 @@ function WorkspacePanel({
                           </div>
 
                           <div className="workspace-compute-row">
-                            <select
-                              value={computationProvider}
-                              onChange={(event) =>
-                                setComputationProvider(event.target.value)
-                              }
-                            >
-                              <option value="wolfram">Wolfram Engine</option>
-                              <option value="sympy">SymPy</option>
-                              <option value="local_llm">Local LLM</option>
-                            </select>
+  <div className="workspace-gemini-status">
+    <span>✦</span>
+    <div>
+      <strong>Gemini</strong>
+      <small>Online Workspace solver</small>
+    </div>
+  </div>
 
-                            <button
-                              type="button"
-                              className="primary"
-                              onClick={() => void computeQuestion()}
-                              disabled={busy}
-                            >
-                              Compute
-                            </button>
+  <button
+    type="button"
+    className="primary"
+    onClick={() => void computeQuestion()}
+    disabled={busy || attemptLoading}
+  >
+    {attemptLoading ? "Thinking..." : "Solve with Gemini"}
+  </button>
 
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => void createAttempt()}
-                              disabled={busy}
-                            >
-                              Start Attempt
-                            </button>
-                          </div>
+  <button
+    type="button"
+    className="secondary"
+    onClick={() => void createAttempt()}
+    disabled={busy || attemptLoading}
+  >
+    {attemptLoading ? "Preparing..." : "Start Attempt"}
+  </button>
+</div>
 
                           {solution && (
                             <div className="workspace-solution">
                               <div className="workspace-solution-header">
                                 <span className="eyebrow">Solution</span>
                                 <span>
-                                  {solution.engine ?? computationProvider} ·{" "}
+                                  {solution.engine ?? "gemini"} Â·{" "}
                                   {solution.status ?? "completed"}
                                 </span>
                               </div>
@@ -1797,7 +1941,7 @@ function WorkspacePanel({
                                 <span>
                                   {String(attempt.status ?? "in progress")}
                                   {attempt.score != null
-                                    ? ` · Score: ${attempt.score}`
+                                    ? ` Â· Score: ${attempt.score}`
                                     : ""}
                                 </span>
                               </div>
@@ -1879,7 +2023,7 @@ function WorkspacePanel({
                                   if (!selectedWorkspace?.id || !member.username) return;
 
                                   try {
-                                    await promoteWorkspaceMember(Number(selectedWorkspace.id), member.username);
+                                    await promoteWorkspaceMember(Number(selectedWorkspace.id), Number(member.user_id));
                                     await loadWorkspace(Number(selectedWorkspace.id));
                                     setMessage(`${member.username} promoted.`);
                                   } catch (err) {
@@ -1976,6 +2120,197 @@ function WorkspacePanel({
       <div className="workspace-user">
         Signed in as <strong>{user.username}</strong>
       </div>
+
+      <AnimatePresence>
+        {attemptModalOpen && attemptResponse && (
+          <motion.div
+            className="workspace-attempt-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                if (!attemptFinished) {
+                  setAttemptModalOpen(false);
+                }
+              }
+            }}
+          >
+            <motion.div
+              className="workspace-attempt-window"
+              initial={{ opacity: 0, y: 28, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22 }}
+            >
+              <div className="workspace-attempt-window-header">
+                <div>
+                  <span className="eyebrow">
+                    GEMINI · WORKSPACE ATTEMPT
+                  </span>
+                  <h2>
+                    {attemptFinished
+                      ? "Attempt complete"
+                      : "Work through the problem"}
+                  </h2>
+                </div>
+
+                {!attemptFinished && (
+                  <button
+                    type="button"
+                    className="workspace-modal-close"
+                    onClick={() => setAttemptModalOpen(false)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {attemptFinished ? (
+                <div className="workspace-attempt-finished">
+                  <div className="workspace-score-orb">
+                    {attemptScore}
+                  </div>
+
+                  <span className="eyebrow">
+                    RECORDED RESULT
+                  </span>
+
+                  <h3>
+                    {attemptScore ===
+                    attemptResponse.ai_questions.length
+                      ? "Excellent work."
+                      : "Attempt completed."}
+                  </h3>
+
+                  <p>
+                    Score:{" "}
+                    <strong>
+                      {attemptScore} /{" "}
+                      {attemptResponse.ai_questions.length}
+                    </strong>
+                  </p>
+
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setAttemptModalOpen(false)}
+                  >
+                    Return to Workspace
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {attemptResponse.ai_questions[attemptCurrent] && (
+                    <>
+                      <div className="workspace-attempt-progress">
+                        <span>
+                          Question {attemptCurrent + 1} of{" "}
+                          {attemptResponse.ai_questions.length}
+                        </span>
+
+                        <div>
+                          <i
+                            style={{
+                              width: `${
+                                ((attemptCurrent + 1) /
+                                  attemptResponse.ai_questions.length) *
+                                100
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="workspace-attempt-question">
+                        <MathText>
+                          {
+                            attemptResponse.ai_questions[
+                              attemptCurrent
+                            ].question
+                          }
+                        </MathText>
+                      </div>
+
+                      <div className="workspace-attempt-options">
+                        {attemptResponse.ai_questions[
+                          attemptCurrent
+                        ].options.map((option, index) => (
+                          <button
+                            type="button"
+                            key={index}
+                            className={
+                              attemptAnswers[
+                                attemptCurrent
+                              ] === index
+                                ? "selected"
+                                : ""
+                            }
+                            onClick={() =>
+                              chooseWorkspaceAttemptAnswer(
+                                index,
+                              )
+                            }
+                          >
+                            <span>
+                              {String.fromCharCode(65 + index)}
+                            </span>
+
+                            <MathText>{option}</MathText>
+                          </button>
+                        ))}
+                      </div>
+
+                      {attemptHint && (
+                        <div className="workspace-attempt-hint">
+                          <strong>Hint</strong>
+                          <p>
+                            Break the question into its key
+                            concept and eliminate options that
+                            contradict it.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="workspace-attempt-window-actions">
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            setAttemptHint((value) => !value)
+                          }
+                        >
+                          {attemptHint
+                            ? "Hide Hint"
+                            : "Show Hint"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={
+                            attemptAnswers[
+                              attemptCurrent
+                            ] == null
+                          }
+                          onClick={
+                            nextWorkspaceAttemptQuestion
+                          }
+                        >
+                          {attemptCurrent ===
+                          attemptResponse.ai_questions.length - 1
+                            ? "Finish Attempt"
+                            : "Next Question →"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -2137,7 +2472,7 @@ function Composer({
         disabled={disabled}
       />
       {!graphical && <label className="icon-button" aria-label="Upload image">
-        📎
+        ðŸ“Ž
         <input
           type="file"
           accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
@@ -2146,7 +2481,7 @@ function Composer({
           disabled={disabled}
         />
       </label>}
-      <motion.button className="send" whileHover={{ scale: 1.08, rotate: -5 }} whileTap={{ scale: 0.9 }} onClick={onSubmit} disabled={disabled} aria-label="Send">➤</motion.button>
+      <motion.button className="send" whileHover={{ scale: 1.08, rotate: -5 }} whileTap={{ scale: 0.9 }} onClick={onSubmit} disabled={disabled} aria-label="Send">âž¤</motion.button>
     </motion.div>
   );
 }
@@ -2180,12 +2515,12 @@ function GraphEditor({
             onClick={() => onChange(coordinates.slice(0, -1))}
             disabled={coordinates.length === 0}
           >
-            − Remove point
+            âˆ’ Remove point
           </button>
         </div>
       </div>
       <GraphCanvas coordinates={coordinates} editable onChange={onChange} />
-      <p className="graph-help">Drag points to place them on the 20 × 20 grid.</p>
+      <p className="graph-help">Drag points to place them on the 20 Ã— 20 grid.</p>
     </motion.div>
   );
 }
@@ -2308,7 +2643,7 @@ function Quiz({
           {finalQuestion
             ? "Your original question"
             : learnAgain
-              ? `Learn Again · Question ${current + 1} of ${total}`
+              ? `Learn Again Â· Question ${current + 1} of ${total}`
               : `Question ${current + 1} of ${total}`}
         </span>
         {!finalQuestion && <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>}
@@ -2342,10 +2677,10 @@ function Quiz({
 
         <div className="hint-area">
           {!showHint ? (
-            <button type="button" className="hint-button" onClick={onHint}>💡 Need a hint?</button>
+            <button type="button" className="hint-button" onClick={onHint}>ðŸ’¡ Need a hint?</button>
           ) : (
             <motion.div className="hint" initial={{ opacity: 0, height: 0, y: 8 }} animate={{ opacity: 1, height: "auto", y: 0 }} transition={{ type: "spring", stiffness: 170, damping: 20 }}>
-              <strong>💡 Hint</strong>
+              <strong>ðŸ’¡ Hint</strong>
               <MathText>{question.hint}</MathText>
             </motion.div>
           )}
@@ -2353,7 +2688,7 @@ function Quiz({
 
         <div className="quiz-actions">
           {current > 0 || finalQuestion ? (
-            <button type="button" className="secondary" onClick={onPrevious}>← Previous</button>
+            <button type="button" className="secondary" onClick={onPrevious}>â† Previous</button>
           ) : <span />}
           <motion.button
             type="button"
@@ -2363,7 +2698,7 @@ function Quiz({
             onClick={onNext}
             disabled={selected == null}
           >
-            {finalQuestion ? "Submit Answer" : current === total - 1 ? "Finish →" : "Next →"}
+            {finalQuestion ? "Submit Answer" : current === total - 1 ? "Finish â†’" : "Next â†’"}
           </motion.button>
         </div>
       </motion.section>
@@ -2403,7 +2738,7 @@ function QuestionReview({
         {review.map((item, index) => (
           <motion.article className="review-item" key={item.index} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06, duration: 0.35 }} whileHover={{ y: -3, scale: 1.005 }}>
             <div className={`review-status ${item.correct ? "correct" : "incorrect"}`} aria-label={item.correct ? "Correct" : "Incorrect"}>
-              {item.correct ? "✓" : "×"}
+              {item.correct ? "âœ“" : "Ã—"}
             </div>
             <div className="review-content">
               <div className="review-number">Question {item.index + 1}</div>
@@ -2411,7 +2746,7 @@ function QuestionReview({
               {item.selected != null && (
                 <div className="review-answer">
                   Your answer: <strong><MathText>{item.question.options[item.selected - 1]}</MathText></strong>
-                  {!item.correct && <> · Correct: <strong><MathText>{item.question.options[item.question.correct_option - 1]}</MathText></strong></>}
+                  {!item.correct && <> Â· Correct: <strong><MathText>{item.question.options[item.question.correct_option - 1]}</MathText></strong></>}
                 </div>
               )}
             </div>
@@ -2478,7 +2813,7 @@ function LearnAgainResult({
                 className={`review-status ${item.correct ? "correct" : "incorrect"}`}
                 aria-label={item.correct ? "Correct" : "Incorrect"}
               >
-                {item.correct ? "✓" : "×"}
+                {item.correct ? "âœ“" : "Ã—"}
               </div>
 
               <div className="review-content">
@@ -2491,7 +2826,7 @@ function LearnAgainResult({
                       : "Not answered"}
                   </strong>
                   {!item.correct && (
-                    <> · Right answer: <strong><MathText>{item.question.options[item.question.correct_option - 1]}</MathText></strong></>
+                    <> Â· Right answer: <strong><MathText>{item.question.options[item.question.correct_option - 1]}</MathText></strong></>
                   )}
                 </div>
               </div>
@@ -2571,7 +2906,7 @@ function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
                 className={`review-status ${isWrong ? "incorrect" : "correct"}`}
                 aria-label={isWrong ? "Incorrect" : "Correct"}
               >
-                {isWrong ? "×" : "✓"}
+                {isWrong ? "Ã—" : "âœ“"}
               </div>
               <div className="review-content">
                 <div className="review-number">Question {index + 1}</div>
@@ -2589,3 +2924,6 @@ function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
 }
 
 export default App;
+
+
+

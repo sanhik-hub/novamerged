@@ -1,0 +1,120 @@
+﻿
+> client\src\services\api.ts:493:export function 
+createWorkspaceAttempt(
+  client\src\services\api.ts:494:  workspaceId: number,
+  client\src\services\api.ts:495:  questionId: number,
+  client\src\services\api.ts:496:  mode: string,
+  client\src\services\api.ts:497:  submittedAnswer: 
+string,
+  client\src\services\api.ts:498:): 
+WorkspaceDataResponse<WorkspaceAttempt> {
+  client\src\services\api.ts:499:  return 
+request<WorkspaceApiResponse<WorkspaceAttempt>>(
+  client\src\services\api.ts:500:    
+"/WorkspaceQuestionAttemptCreate",
+  client\src\services\api.ts:501:    {
+  client\src\services\api.ts:502:      method: "POST",
+  client\src\services\api.ts:503:      body: 
+JSON.stringify({
+  client\src\services\api.ts:504:        WorkspaceId: 
+workspaceId,
+  client\src\services\api.ts:505:        QuestionId: 
+questionId,
+  client\src\services\api.ts:506:        Mode: mode,
+  client\src\services\api.ts:507:        SubmittedAnswer: 
+submittedAnswer,
+  client\src\services\api.ts:508:      }),
+  client\src\services\api.ts:509:    },
+  client\src\services\api.ts:510:  );
+  client\src\services\api.ts:511:}
+  client\src\services\api.ts:512:
+> client\src\services\api.ts:513:export function 
+completeWorkspaceAttempt(
+  client\src\services\api.ts:514:  workspaceId: number,
+  client\src\services\api.ts:515:  attemptId: number,
+  client\src\services\api.ts:516:  result: unknown,
+  client\src\services\api.ts:517:  score: number,
+  client\src\services\api.ts:518:  solutionRevealed: 
+boolean,
+  client\src\services\api.ts:519:): 
+WorkspaceDataResponse<WorkspaceAttempt> {
+  client\src\services\api.ts:520:  return 
+request<WorkspaceApiResponse<WorkspaceAttempt>>(
+  client\src\services\api.ts:521:    
+"/WorkspaceQuestionAttemptComplete",
+  client\src\services\api.ts:522:    {
+  client\src\services\api.ts:523:      method: "POST",
+  client\src\services\api.ts:524:      body: 
+JSON.stringify({
+  client\src\services\api.ts:525:        WorkspaceId: 
+workspaceId,
+  client\src\services\api.ts:526:        AttemptId: 
+attemptId,
+  client\src\services\api.ts:527:        Result: result,
+  client\src\services\api.ts:528:        Score: score,
+  client\src\services\api.ts:529:        
+SolutionRevealed: solutionRevealed,
+  client\src\services\api.ts:530:      }),
+  client\src\services\api.ts:531:    },
+  client\src\services\api.ts:532:  );
+  client\src\services\api.ts:533:}
+  client\src\services\api.ts:534:
+> client\src\services\api.ts:535:export function 
+getWorkspaceQuestionAttempts(
+  client\src\services\api.ts:536:  workspaceId: number,
+  client\src\services\api.ts:537:  questionId: number,
+  client\src\services\api.ts:538:): 
+WorkspaceDataResponse<WorkspaceAttempt[]> {
+  client\src\services\api.ts:539:  return 
+request<WorkspaceApiResponse<WorkspaceAttempt[]>>(
+  client\src\services\api.ts:540:    
+"/WorkspaceQuestionAttempts",
+  client\src\services\api.ts:541:    {
+  client\src\services\api.ts:542:      method: "POST",
+  client\src\services\api.ts:543:      body: 
+JSON.stringify({
+  client\src\services\api.ts:544:        WorkspaceId: 
+workspaceId,
+  client\src\services\api.ts:545:        QuestionId: 
+questionId,
+  client\src\services\api.ts:546:      }),
+  client\src\services\api.ts:547:    },
+  client\src\services\api.ts:548:  );
+  client\src\services\api.ts:549:}
+  client\src\services\api.ts:550:
+  client\src\services\api.ts:551:export function 
+postWorkspaceQuestionFollowUp(
+  client\src\services\api.ts:552:  workspaceId: number,
+  client\src\services\api.ts:553:  questionId: number,
+  client\src\services\api.ts:554:  question: string,
+  client\src\services\api.ts:555:  answer?: string,
+  client\src\services\api.ts:556:  engine?: string,
+  client\src\services\api.ts:557:): 
+WorkspaceDataResponse<WorkspaceFollowUp> {
+  client\src\services\api.ts:558:  return 
+request<WorkspaceApiResponse<WorkspaceFollowUp>>(
+  client\src\services\api.ts:559:    
+"/WorkspaceQuestionFollowUp",
+  client\src\services\api.ts:560:    {
+  client\src\services\api.ts:561:      method: "POST",
+  client\src\services\api.ts:562:      body: 
+JSON.stringify({
+  client\src\services\api.ts:563:        WorkspaceId: 
+workspaceId,
+  client\src\services\api.ts:564:        QuestionId: 
+questionId,
+  client\src\services\api.ts:565:        Question: 
+question,
+  client\src\services\api.ts:566:        Answer: answer 
+?? "",
+  client\src\services\api.ts:567:        Engine: engine 
+?? "wolfram",
+  client\src\services\api.ts:568:      }),
+  client\src\services\api.ts:569:    },
+  client\src\services\api.ts:570:  );
+  client\src\services\api.ts:571:}
+  client\src\services\api.ts:572:
+  client\src\services\api.ts:573:
+  client\src\services\api.ts:574:
+
+

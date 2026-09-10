@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   login,
@@ -24,7 +24,7 @@ import {
   getWorkspaceQuestions,
   getWorkspaceQuestionDetails,
   getWorkspaceQuestionSolution,
-  computeWorkspaceQuestion,
+  completeWorkspaceAttempt,
   createWorkspaceAttempt,
   getWorkspaceQuestionAttempts,
   postWorkspaceQuestionFollowUp,

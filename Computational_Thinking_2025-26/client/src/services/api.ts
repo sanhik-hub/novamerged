@@ -1,4 +1,3 @@
-
 import type {
   AuthResponse,
   LearnAgainResponse,
@@ -380,15 +379,13 @@ export function declineWorkspaceInvitation(
 
 export function promoteWorkspaceMember(
   workspaceId: number,
-  userId: number,
-  role: WorkspaceRoleValue = "member",
+  username: string,
 ): WorkspaceDataResponse<unknown> {
   return request<WorkspaceApiResponse<unknown>>("/WorkspacePromote", {
     method: "POST",
     body: JSON.stringify({
       WorkspaceId: workspaceId,
-      UserId: userId,
-      Role: role,
+      Username: username,
     }),
   });
 }
@@ -571,4 +568,3 @@ export function postWorkspaceQuestionFollowUp(
     },
   );
 }
-
