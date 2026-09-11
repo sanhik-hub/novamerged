@@ -389,15 +389,48 @@ class WorkspaceComputationService:
         # Computation exceeded the waiting period.
         # -----------------------------------------------------
 
+        db.session.expire_all()
+
+        timed_out_solution = (
+            WorkspaceQuestionSolution.query
+            .filter_by(workspace_question_id=question_id)
+            .first()
+        )
+
+        if (
+            timed_out_solution
+            and timed_out_solution.status == "computing"
+        ):
+            timed_out_solution.status = "failed"
+            timed_out_solution.error_message = (
+                "Workspace computation timed out and will be retried."
+            )
+
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
         return {
             "cached": False,
-            "solution_id": None,
+            "solution_id": (
+                timed_out_solution.id
+                if timed_out_solution
+                else None
+            ),
             "workspace_question_id": question_id,
-            "engine": None,
-            "status": "computing",
+            "engine": (
+                timed_out_solution.engine
+                if timed_out_solution
+                else None
+            ),
+            "status": "failed",
             "result": None,
             "error_message": (
-                "Computation is still in progress. "
+                "Workspace computation timed out. "
+                "Please try again."
+            ),
+        }, None
                 "Please try again shortly."
             ),
         }, None
