@@ -1,8 +1,9 @@
-from services.provider_router import ProviderRouter
+﻿from services.provider_router import ProviderRouter
 from services.expression_normalizer import normalize_expression
 from services.expression_normalizer import (
     normalize_expression_result,
 )
+
 
 class ComputationService:
 
@@ -14,15 +15,19 @@ class ComputationService:
         query: str,
         operation: str = "compute",
         provider: str = "wolfram",
+        image_path: str | None = None,
     ):
-        normalization = normalize_expression_result(query)
-
-        normalized_query = normalization.normalized
+        if provider == "gemini":
+            normalized_query = query
+        else:
+            normalization = normalize_expression_result(query)
+            normalized_query = normalization.normalized
 
         try:
             result = self.router.calculate(
                 query=normalized_query,
                 provider=provider,
+                image_path=image_path,
             )
         except ValueError as exc:
             return self._error(
@@ -138,16 +143,17 @@ class ComputationService:
             operation="limit",
             provider=provider,
         )
+
     def plot(
         self,
-        
         expression: str,
         variable: str = "x",
         xmin: float = -10,
         xmax: float = 10,
         provider: str = "wolfram",
-    ):  
+    ):
         normalized_expression = normalize_expression(expression)
+
         try:
             selected = self.router.get_provider(provider)
 
@@ -189,6 +195,7 @@ class ComputationService:
                 operation="plot",
                 error=str(exc),
             )
+
     @staticmethod
     def _error(query: str, operation: str, error: str):
         return {

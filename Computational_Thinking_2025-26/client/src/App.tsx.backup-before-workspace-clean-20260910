@@ -1286,37 +1286,17 @@ function WorkspacePanel({
     setMessage("");
 
     try {
-      const workspaceId = Number(selectedWorkspace.id);
-      const questionId = Number(selectedQuestion.id);
-
       const response = await computeWorkspaceQuestion({
-        workspace_id: workspaceId,
-        question_id: questionId,
+        workspace_id: Number(selectedWorkspace.id),
+        question_id: Number(selectedQuestion.id),
         operation: "compute",
       });
 
-      const computed = response as any;
-
-      if (computed?.success === false) {
-        throw new Error(
-          computed?.error || "Unable to solve the question.",
-        );
-      }
-
-      const solutionResult =
-        computed?.result ??
-        computed?.data?.result ??
-        computed?.data ??
-        computed;
-
-      setSolution(solutionResult as WorkspaceSolution);
-      setMessage("Solution completed.");
+      const result = response as WorkspaceSolution;
+      setSolution(result);
+      setMessage("Computation completed.");
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to solve the question.",
-      );
+      setError(err instanceof Error ? err.message : "Computation failed.");
     } finally {
       setBusy(false);
     }
@@ -1333,25 +1313,14 @@ function WorkspacePanel({
       const workspaceId = Number(selectedWorkspace.id);
       const questionId = Number(selectedQuestion.id);
 
-      const existingActiveAttempt = attempts.find(
-        (attempt) =>
-          attempt.status === "active" &&
-          Number(attempt.question_id) === questionId &&
-          String(attempt.mode || "").toLowerCase() === "guided",
+      const attemptResponse = await createWorkspaceAttempt(
+        workspaceId,
+        questionId,
+        "guided",
+        "",
       );
 
-      let attempt = existingActiveAttempt;
-
-      if (!attempt?.id) {
-        const attemptResponse = await createWorkspaceAttempt(
-          workspaceId,
-          questionId,
-          "guided",
-          "",
-        );
-
-        attempt = attemptResponse.data;
-      }
+      const attempt = attemptResponse.data;
 
       if (!attempt?.id) {
         throw new Error("Unable to create guided attempt.");
@@ -1364,18 +1333,11 @@ function WorkspacePanel({
       });
 
       const computed = computeResponse as any;
-
-      if (computed?.success === false) {
-        throw new Error(
-          computed?.error || "Unable to prepare guided attempt.",
-        );
-      }
-
       const payload =
         computed?.result ??
+        computed?.result_json ??
         computed?.data?.result ??
-        computed?.data ??
-        computed;
+        computed?.data?.result_json;
 
       const guidedQuestions = Array.isArray(payload?.ai_questions)
         ? payload.ai_questions
@@ -1403,7 +1365,7 @@ function WorkspacePanel({
       );
 
       setAttempts(Array.isArray(response.data) ? response.data : []);
-      setMessage("Guided attempt started.");
+      setMessage("Attempt started.");
     } catch (err) {
       setError(
         err instanceof Error
@@ -1831,7 +1793,7 @@ function WorkspacePanel({
                     </div>
                     <div className="workspace-stat">
                       <span>Computation</span>
-                      <strong>Online</strong>
+                      <strong>{settings?.computation_mode ?? "offline"}</strong>
                     </div>
                   </div>
 
@@ -1961,6 +1923,16 @@ function WorkspacePanel({
                           </div>
 
                           <div className="workspace-compute-row">
+                            <select
+                              value={computationProvider}
+                              onChange={(event) =>
+                                setComputationProvider(event.target.value)
+                              }
+                            >
+                              <option value="wolfram">Wolfram Engine</option>
+                              <option value="sympy">SymPy</option>
+                              <option value="local_llm">Local LLM</option>
+                            </select>
 
                             <button
                               type="button"
@@ -1968,7 +1940,7 @@ function WorkspacePanel({
                               onClick={() => void computeQuestion()}
                               disabled={busy}
                             >
-                              Solve
+                              Compute
                             </button>
 
                             <button
@@ -1977,7 +1949,7 @@ function WorkspacePanel({
                               onClick={() => void createAttempt()}
                               disabled={busy}
                             >
-                              Guided Attempt
+                              Start Attempt
                             </button>
                           </div>
 
@@ -1986,6 +1958,7 @@ function WorkspacePanel({
                               <div className="workspace-solution-header">
                                 <span className="eyebrow">Solution</span>
                                 <span>
+                                  {solution.engine ?? computationProvider} ·{" "}
                                   {solution.status ?? "completed"}
                                 </span>
                               </div>
@@ -2498,7 +2471,8 @@ function WorkspaceSettingsPanel({
   onSaved: (settings: WorkspaceSettings) => void;
   onError: (message: string) => void;
 }) {
-const [allowPosting, setAllowPosting] = useState(
+  const [mode, setMode] = useState<"offline" | "online">(settings?.computation_mode === "online" ? "online" : "offline");
+  const [allowPosting, setAllowPosting] = useState(
     settings?.allow_member_posting ?? true,
   );
   const [allowSolving, setAllowSolving] = useState(
@@ -2506,7 +2480,8 @@ const [allowPosting, setAllowPosting] = useState(
   );
 
   useEffect(() => {
-setAllowPosting(settings?.allow_member_posting ?? true);
+    setMode(settings?.computation_mode === "online" ? "online" : "offline");
+    setAllowPosting(settings?.allow_member_posting ?? true);
     setAllowSolving(settings?.allow_member_solving ?? true);
   }, [settings]);
 
@@ -2516,7 +2491,7 @@ setAllowPosting(settings?.allow_member_posting ?? true);
     try {
       const response = await updateWorkspaceSettings({
         WorkspaceId: Number(workspace.id),
-        ComputationMode: "online",
+        ComputationMode: mode,
         AllowMemberPosting: allowPosting,
         AllowMemberSolving: allowSolving,
       });
@@ -2543,6 +2518,20 @@ setAllowPosting(settings?.allow_member_posting ?? true);
           </span>
         </div>
       </div>
+
+      <label className="workspace-setting">
+        <span>Computation mode</span>
+        <select
+          value={mode}
+          onChange={(event) =>
+            setMode(event.target.value as "offline" | "online")
+          }
+          disabled={!enabled}
+        >
+          <option value="offline">Offline</option>
+          <option value="online">Online</option>
+        </select>
+      </label>
 
       <label className="workspace-setting-toggle">
         <input

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.exc import IntegrityError
 
@@ -241,7 +241,7 @@ def create_workspace_question_attempt(
     if membership.role != "admin" and not settings.allow_member_solving:
         return None, "Members are not allowed to solve questions"
 
-    if mode not in {"solver", "assessment", "mcq"}:
+    if mode not in {"solver", "assessment", "mcq", "guided"}:
         return None, "Invalid attempt mode"
 
     attempt = WorkspaceQuestionAttempt(
@@ -326,7 +326,7 @@ def complete_workspace_question_attempt(
 
     attempt.score = score
     attempt.solution_revealed = bool(solution_revealed)
-    attempt.completed_at = datetime.now(datetime.timezone.utc)
+    attempt.completed_at = datetime.now(timezone.utc)
     attempt.status = "completed"
 
     try:

@@ -124,10 +124,12 @@ export type WorkspaceAttempt = {
   question_id?: number;
   user_id?: number;
   mode?: string;
+  status?: "active" | "completed" | "terminated" | "exited" | string;
   submitted_answer?: string;
   result?: unknown;
   score?: number;
   solution_revealed?: boolean;
+  started_at?: string;
   created_at?: string;
   completed_at?: string;
   [key: string]: unknown;

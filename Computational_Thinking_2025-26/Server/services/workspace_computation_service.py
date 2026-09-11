@@ -46,7 +46,7 @@ class WorkspaceComputationService:
         workspace_id: int,
         question_id: int,
         operation: str = "compute",
-        provider: str = "wolfram",
+        provider: str = "gemini",
     ):
         workspace = Workspace.query.filter_by(
             id=workspace_id,
@@ -95,11 +95,8 @@ class WorkspaceComputationService:
         if not settings:
             return None, "Workspace settings not found"
 
-        if settings.computation_mode == "online":
-            return None, "Online computation is not enabled yet"
-
-        if settings.computation_mode != "offline":
-            return None, "Invalid workspace computation mode"
+        # Workspace computation is online-only.
+        # The frontend does not expose a computation-mode selector.
 
         # -----------------------------------------------------
         # Existing successful solution
@@ -109,18 +106,36 @@ class WorkspaceComputationService:
             workspace_question_id=question.id
         ).first()
 
-        if cached and cached.status == "completed":
-            result = self._decode_result(cached.result_json)
+        solution = None
 
-            return {
-                "cached": True,
-                "solution_id": cached.id,
-                "workspace_question_id": question.id,
-                "engine": cached.engine,
-                "status": cached.status,
-                "result": result,
-                "error_message": cached.error_message,
-            }, None
+        if cached and cached.status == "completed":
+            if cached.engine == provider:
+                result = self._decode_result(cached.result_json)
+
+                return {
+                    "cached": True,
+                    "solution_id": cached.id,
+                    "workspace_question_id": question.id,
+                    "engine": cached.engine,
+                    "status": cached.status,
+                    "result": result,
+                    "error_message": cached.error_message,
+                }, None
+
+            # A completed solution from another provider is stale.
+            # Reuse the existing row and recompute with the current
+            # Workspace provider.
+            cached.engine = provider
+            cached.status = "computing"
+            cached.result_json = None
+            cached.error_message = None
+            solution = cached
+
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                return None, "Unable to reset stale workspace solution"
 
         # -----------------------------------------------------
         # Existing computation in progress
@@ -161,17 +176,18 @@ class WorkspaceComputationService:
 
         computation_token = uuid.uuid4().hex
 
-        solution = WorkspaceQuestionSolution(
-            workspace_question_id=question.id,
-            engine=provider,
-            status="computing",
-            result_json=None,
-            error_message=None,
-        )
-
         try:
-            db.session.add(solution)
-            db.session.commit()
+            if solution is None:
+                solution = WorkspaceQuestionSolution(
+                    workspace_question_id=question.id,
+                    engine=provider,
+                    status="computing",
+                    result_json=None,
+                    error_message=None,
+                )
+
+                db.session.add(solution)
+                db.session.commit()
 
         except IntegrityError:
             db.session.rollback()
@@ -198,6 +214,7 @@ class WorkspaceComputationService:
                 query=question.question,
                 operation=operation,
                 provider=provider,
+                image_path=question.image_path,
             )
 
             engine = result.get("engine") or provider

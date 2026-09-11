@@ -531,6 +531,38 @@ export function completeWorkspaceAttempt(
   );
 }
 
+export function exitWorkspaceAttempt(
+  workspaceId: number,
+  attemptId: number,
+): WorkspaceDataResponse<WorkspaceAttempt> {
+  return request<WorkspaceApiResponse<WorkspaceAttempt>>(
+    "/WorkspaceQuestionAttemptExit",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        WorkspaceId: workspaceId,
+        AttemptId: attemptId,
+      }),
+    },
+  );
+}
+
+export function terminateWorkspaceAttempt(
+  workspaceId: number,
+  attemptId: number,
+): WorkspaceDataResponse<WorkspaceAttempt> {
+  return request<WorkspaceApiResponse<WorkspaceAttempt>>(
+    "/WorkspaceQuestionAttemptTerminate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        WorkspaceId: workspaceId,
+        AttemptId: attemptId,
+      }),
+    },
+  );
+}
+
 export function getWorkspaceQuestionAttempts(
   workspaceId: number,
   questionId: number,
