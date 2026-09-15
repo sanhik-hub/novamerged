@@ -54,7 +54,7 @@ def create_workspace(username: str, name: str):
         member = WorkspaceMember(
             workspace_id=workspace.id,
             user_id=user.id,
-            role="owner",
+            role="admin",
         )
 
         settings = WorkspaceSettings(
@@ -73,7 +73,7 @@ def create_workspace(username: str, name: str):
             "id": workspace.id,
             "name": workspace.name,
             "join_code": workspace.join_code,
-            "role": "owner",
+            "role": "admin",
             "computation_mode": settings.computation_mode,
             "allow_member_posting": settings.allow_member_posting,
             "allow_member_solving": settings.allow_member_solving,
@@ -204,26 +204,9 @@ def get_workspace_details(username: str, workspace_id: int):
         workspace_id=workspace.id
     ).first()
 
-    workspace_memberships = WorkspaceMember.query.filter_by(
+    member_count = WorkspaceMember.query.filter_by(
         workspace_id=workspace.id
-    ).all()
-
-    members = []
-
-    for member in workspace_memberships:
-        member_user = User.query.filter_by(id=member.user_id).first()
-
-        if not member_user:
-            continue
-
-        members.append({
-            "workspace_id": workspace.id,
-            "user_id": member.user_id,
-            "username": member_user.username,
-            "role": member.role,
-        })
-
-    member_count = len(members)
+    ).count()
 
     return {
         "id": workspace.id,
@@ -237,7 +220,6 @@ def get_workspace_details(username: str, workspace_id: int):
             else None
         ),
         "member_count": member_count,
-        "members": members,
         "settings": {
             "computation_mode": (
                 settings.computation_mode
@@ -270,12 +252,6 @@ def leave_workspace(username: str, workspace_id: int):
 
     if not membership:
         return None, "You are not a member of this workspace"
-
-    if membership.role == "owner":
-        return None, (
-            "Workspace owners cannot leave the workspace. "
-            "Transfer ownership first."
-        )
 
     if membership.role == "admin":
         return None, (
@@ -324,7 +300,7 @@ def invite_user_to_workspace(
     if not admin_membership:
         return None, "You are not a member of this workspace"
 
-    if admin_membership.role not in {"owner", "admin"}:
+    if admin_membership.role != "admin":
         return None, "Admin privileges required"
 
     invited_username = invited_username.strip()
@@ -417,7 +393,7 @@ def get_pending_workspace_sent_invitations(
     if not membership:
         return None, "You are not a member of this workspace"
 
-    if membership.role not in {"owner", "admin"}:
+    if membership.role != "admin":
         return None, "Admin privileges required"
 
     try:
@@ -673,7 +649,7 @@ def promote_workspace_member(
     if not admin_membership:
         return None, "You are not a member of this workspace"
 
-    if admin_membership.role not in {"owner", "admin"}:
+    if admin_membership.role != "admin":
         return None, "Admin privileges required"
 
     member_username = member_username.strip()
@@ -716,162 +692,6 @@ def promote_workspace_member(
         db.session.rollback()
         return None, "Failed to promote workspace member"
 
-def remove_workspace_member(
-    admin_username: str,
-    workspace_id: int,
-    member_username: str,
-):
-    admin = User.query.filter_by(
-        username=admin_username
-    ).first()
-
-    if not admin:
-        return None, "User not found"
-
-    workspace = Workspace.query.filter_by(
-        id=workspace_id,
-        status="active",
-    ).first()
-
-    if not workspace:
-        return None, "Workspace not found"
-
-    admin_membership = WorkspaceMember.query.filter_by(
-        workspace_id=workspace_id,
-        user_id=admin.id,
-    ).first()
-
-    if not admin_membership:
-        return None, "You are not a member of this workspace"
-
-    if admin_membership.role not in {"owner", "admin"}:
-        return None, "Admin privileges required"
-
-    member_username = member_username.strip()
-
-    if not member_username:
-        return None, "Username cannot be empty"
-
-    member_user = User.query.filter_by(
-        username=member_username
-    ).first()
-
-    if not member_user:
-        return None, "Member not found"
-
-    membership = WorkspaceMember.query.filter_by(
-        workspace_id=workspace_id,
-        user_id=member_user.id,
-    ).first()
-
-    if not membership:
-        return None, "User is not a member of this workspace"
-
-    if member_user.id == admin.id:
-        return None, "You cannot remove yourself"
-
-    if membership.role == "owner":
-        return None, "Workspace owner cannot be removed"
-
-    if membership.role == "admin" and admin_membership.role != "owner":
-        return None, "Admins cannot remove other admins"
-
-    removed_role = membership.role
-
-    try:
-        db.session.delete(membership)
-        db.session.commit()
-
-        return {
-            "workspace_id": workspace.id,
-            "workspace_name": workspace.name,
-            "user_id": member_user.id,
-            "username": member_user.username,
-            "role": removed_role,
-        }, None
-
-    except Exception:
-        db.session.rollback()
-        return None, "Failed to remove workspace member"
-
-
-def transfer_workspace_ownership(
-    owner_username: str,
-    workspace_id: int,
-    member_username: str,
-):
-    owner = User.query.filter_by(
-        username=owner_username
-    ).first()
-
-    if not owner:
-        return None, "User not found"
-
-    workspace = Workspace.query.filter_by(
-        id=workspace_id,
-        status="active",
-    ).first()
-
-    if not workspace:
-        return None, "Workspace not found"
-
-    owner_membership = WorkspaceMember.query.filter_by(
-        workspace_id=workspace_id,
-        user_id=owner.id,
-    ).first()
-
-    if not owner_membership:
-        return None, "You are not a member of this workspace"
-
-    if owner_membership.role != "owner":
-        return None, "Workspace owner privileges required"
-
-    member_username = member_username.strip()
-
-    if not member_username:
-        return None, "Username cannot be empty"
-
-    member_user = User.query.filter_by(
-        username=member_username
-    ).first()
-
-    if not member_user:
-        return None, "Member not found"
-
-    target_membership = WorkspaceMember.query.filter_by(
-        workspace_id=workspace_id,
-        user_id=member_user.id,
-    ).first()
-
-    if not target_membership:
-        return None, "User is not a member of this workspace"
-
-    if member_user.id == owner.id:
-        return None, "You already own this workspace"
-
-    if target_membership.role == "owner":
-        return None, "User is already the workspace owner"
-
-    try:
-        owner_membership.role = "admin"
-        target_membership.role = "owner"
-        db.session.commit()
-
-        return {
-            "workspace_id": workspace.id,
-            "workspace_name": workspace.name,
-            "previous_owner_id": owner.id,
-            "previous_owner_username": owner.username,
-            "new_owner_id": member_user.id,
-            "new_owner_username": member_user.username,
-            "role": target_membership.role,
-        }, None
-
-    except Exception:
-        db.session.rollback()
-        return None, "Failed to transfer workspace ownership"
-
-
 def update_workspace_settings(
     admin_username: str,
     workspace_id: int,
@@ -902,7 +722,7 @@ def update_workspace_settings(
     if not membership:
         return None, "You are not a member of this workspace"
 
-    if membership.role not in {"owner", "admin"}:
+    if membership.role != "admin":
         return None, "Admin privileges required"
 
     settings = WorkspaceSettings.query.filter_by(
@@ -1011,7 +831,7 @@ def create_workspace_question(
     # admins can always post, members require permission.
     if visibility == "public":
         if (
-            membership.role not in {"owner", "admin"}
+            membership.role != "admin"
             and not settings.allow_member_posting
         ):
             return None, "Members are not allowed to post questions"
@@ -1079,7 +899,7 @@ def get_workspace_questions(username: str, workspace_id: int):
     # Ordinary members can see:
     #   - all public questions
     #   - their own private questions
-    if membership.role in {"owner", "admin"}:
+    if membership.role == "admin":
         questions = (
             WorkspaceQuestion.query
             .filter_by(
@@ -1164,10 +984,7 @@ def get_workspace_question(
     # Private questions are visible only to their author
     # and workspace admins.
     if question.visibility == "private":
-        if (
-            membership.role not in {"owner", "admin"}
-            and question.author_id != user.id
-        ):
+        if membership.role != "admin" and question.author_id != user.id:
             # Deliberately hide the existence of the question.
             return None, "Workspace question not found"
 

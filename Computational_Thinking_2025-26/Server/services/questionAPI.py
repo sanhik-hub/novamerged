@@ -18,9 +18,9 @@ api_key2 = os.getenv("API_KEY2")
 prompt = """
 You are an AI Computational Thinking Mathematics Tutor.
 
-The user provides a mathematics problem as text, an image, or both. Analyze the complete problem, including any diagrams/images. Do not invent missing or unreadable information.
+The user provides a study-related question or problem as text, an image, or both. Analyze the complete problem, including any diagrams/images. Do not invent missing or unreadable information.
 
-First, determine whether the input is a valid mathematics problem. If it is not, cannot be understood reliably, or is unrelated to the selected chapter, set "is_relevant" to false and provide a concise, friendly error_message. Otherwise set it to true and continue.
+First, determine whether the input is a valid study-related question or problem. If it is not, cannot be understood reliably, or is unrelated to the selected subject or chapter, set "is_relevant" to false and provide a concise, friendly error_message. Otherwise set it to true and continue.
 
 For a relevant problem:
 
@@ -28,10 +28,8 @@ For a relevant problem:
 Generate 4 multiple-choice options with exactly one correct answer. Also provide:
 - the original question
 - correct option
-- a basic hint
-- a detailed hint
-- a complete step-by-step solution
-
+- one useful hint
+- a complete, accurate, step-by-step solution of the original user question
 2. COMPUTATIONAL THINKING BREAKDOWN
 Break the original problem into 5–15 smaller multiple-choice questions that progressively build the knowledge and intermediate results required to solve the original problem.
 
@@ -57,7 +55,7 @@ The student should have enough knowledge and intermediate results after completi
 
 Do not reveal answers unnecessarily through hints. Hints should guide reasoning rather than directly give the answer.
 
-Match the difficulty and mathematical level of the original problem. The AI response must contain proper mathematical symbols like √(sqrt), π(pi), exponents(²) etc and do not use unicode characters.
+Match the difficulty and academic level of the original question. The AI response must contain proper mathematical symbols like √(sqrt), π(pi), exponents(²) etc and do not use unicode characters.
 
 Return ONLY valid JSON and follow the exact JSON structure/schema configured for this request. Do not add, remove, rename, or restructure fields. Do not include Markdown, code fences, explanations, or text outside the JSON.
 
@@ -73,13 +71,12 @@ Before returning, perform a strict mathematical validation for every generated q
 - There must be 5-15 smaller questions.
 - Every question must have exactly 4 options and exactly one correct answer.
 - The smaller questions collectively prepare the student to solve the original problem.
-- Use ASCII mathematical notation only: x^2, x^(n+1), 1/2, sqrt(...), pi, sin(x), cos(x). Never use superscript Unicode characters, subscript Unicode characters, or Markdown backticks.
 - The output follows the configured JSON schema exactly.
 """
 
 
 prompt2="""  
-You are a patient AI Computational Thinking Mathematics Tutor.
+You are a patient AI Computational Thinking Study Tutor.
 
 The student answered one question incorrectly. Your goal is to help the student understand the concept without immediately revealing the final answer.
 
@@ -167,13 +164,13 @@ response_schema1 = {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 4
-                    }
+                    }, "solution": { "type": "string" }
                 },
                 "required": [
                     "question",
                     "options",
                     "hint",
-                    "correct_option"
+                    "correct_option", "solution"
                 ]
             }
         },
@@ -394,6 +391,42 @@ def get_response(username, question, img_path):
         raise RuntimeError(f"Failed to get response from Gemini API: {e}")
         
     
+    user_question = response.get("user_question") if isinstance(response, dict) else None
+
+    if isinstance(user_question, dict):
+        existing_solution = user_question.get("solution")
+
+        if not isinstance(existing_solution, str) or not existing_solution.strip():
+            solution_schema = {
+                "type": "object",
+                "properties": {
+                    "solution": {"type": "string"}
+                },
+                "required": ["solution"]
+            }
+
+            solution_prompt = f"""Provide a complete, accurate, step-by-step solution to this study-related question.
+
+Question:
+{question}
+
+Show the important intermediate steps, explain the reasoning clearly, and state the final answer clearly. Return only the solution text."""
+
+            solution_response = call_gemini_with_fallback(
+                solution_prompt,
+                img_url,
+                solution_schema,
+            )
+
+            generated_solution = (
+                solution_response.get("solution")
+                if isinstance(solution_response, dict)
+                else None
+            )
+
+            if isinstance(generated_solution, str) and generated_solution.strip():
+                user_question["solution"] = generated_solution
+
     return response
 
 

@@ -10,8 +10,6 @@
     accept_workspace_invitation,
     decline_workspace_invitation,
     promote_workspace_member,
-    remove_workspace_member,
-    transfer_workspace_ownership,
     update_workspace_settings,
     create_workspace_question,
     get_workspace_questions,
@@ -30,7 +28,6 @@ from services.workspace_solution_services import (
     get_workspace_question_attempts,
     exit_workspace_question_attempt,
     terminate_workspace_question_attempt,
-    get_workspace_member_performance,
 )
 from services.auth_services import (
     create_auth_token,
@@ -1157,154 +1154,6 @@ def register_routes(app):
             "message": "Workspace member promoted successfully",
             "data": result,
         }, 200
-
-    @app.route("/WorkspaceRemoveMember", methods=["POST"])
-    def workspace_remove_member():
-        user, auth_error = get_authenticated_user()
-
-        if auth_error:
-            return auth_error
-
-        data = request.get_json(silent=True) or {}
-
-        if not isinstance(data, dict):
-            return {"error": "Invalid JSON payload"}, 400
-
-        required_fields = {
-            "WorkspaceId",
-            "MemberUsername",
-        }
-
-        missing_fields = required_fields - data.keys()
-        extra_fields = set(data.keys()) - required_fields
-
-        if missing_fields:
-            return {
-                "error": f"Missing fields: {sorted(missing_fields)}"
-            }, 400
-
-        if extra_fields:
-            return {
-                "error": f"Unexpected fields: {sorted(extra_fields)}"
-            }, 400
-
-        workspace_id = data.get("WorkspaceId")
-        member_username = data.get("MemberUsername")
-
-        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
-            return {
-                "error": "WorkspaceId must be an integer"
-            }, 400
-
-        if not isinstance(member_username, str):
-            return {
-                "error": "MemberUsername must be a string"
-            }, 400
-
-        result, error = remove_workspace_member(
-            admin_username=user.username,
-            workspace_id=workspace_id,
-            member_username=member_username,
-        )
-
-        if error in {
-            "User not found",
-            "Workspace not found",
-            "Member not found",
-        }:
-            return {"error": error}, 404
-
-        if error in {
-            "You are not a member of this workspace",
-            "Admin privileges required",
-            "Workspace owner cannot be removed",
-            "Admins cannot remove other admins",
-            "You cannot remove yourself",
-        }:
-            return {"error": error}, 403
-
-        if error == "User is not a member of this workspace":
-            return {"error": error}, 400
-
-        if error:
-            return {"error": error}, 400
-
-        return {
-            "message": "Workspace member removed successfully",
-            "data": result,
-        }, 200
-
-
-    @app.route("/WorkspaceTransferOwnership", methods=["POST"])
-    def workspace_transfer_ownership():
-        user, auth_error = get_authenticated_user()
-
-        if auth_error:
-            return auth_error
-
-        data = request.get_json(silent=True) or {}
-
-        if not isinstance(data, dict):
-            return {"error": "Invalid JSON payload"}, 400
-
-        required_fields = {
-            "WorkspaceId",
-            "MemberUsername",
-        }
-
-        missing_fields = required_fields - data.keys()
-        extra_fields = set(data.keys()) - required_fields
-
-        if missing_fields:
-            return {
-                "error": f"Missing fields: {sorted(missing_fields)}"
-            }, 400
-
-        if extra_fields:
-            return {
-                "error": f"Unexpected fields: {sorted(extra_fields)}"
-            }, 400
-
-        workspace_id = data.get("WorkspaceId")
-        member_username = data.get("MemberUsername")
-
-        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
-            return {
-                "error": "WorkspaceId must be an integer"
-            }, 400
-
-        if not isinstance(member_username, str):
-            return {
-                "error": "MemberUsername must be a string"
-            }, 400
-
-        result, error = transfer_workspace_ownership(
-            owner_username=user.username,
-            workspace_id=workspace_id,
-            member_username=member_username,
-        )
-
-        if error in {
-            "User not found",
-            "Workspace not found",
-            "Member not found",
-        }:
-            return {"error": error}, 404
-
-        if error in {
-            "You are not a member of this workspace",
-            "Workspace owner privileges required",
-        }:
-            return {"error": error}, 403
-
-        if error:
-            return {"error": error}, 400
-
-        return {
-            "message": "Workspace ownership transferred successfully",
-            "data": result,
-        }, 200
-
 
     @app.route("/WorkspaceSettingsUpdate", methods=["POST"])
     def workspace_settings_update():

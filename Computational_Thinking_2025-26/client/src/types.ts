@@ -122,6 +122,8 @@ export type WorkspaceAttempt = {
   id?: number;
   workspace_id?: number;
   question_id?: number;
+  workspace_question_id?: number;
+  question?: string;
   user_id?: number;
   mode?: string;
   status?: "active" | "completed" | "terminated" | "exited" | string;
@@ -139,9 +141,13 @@ export type WorkspaceInvitation = {
   id?: number;
   workspace_id?: number;
   workspace_name?: string;
+  join_code?: string;
   inviter_id?: number;
   inviter_username?: string;
   invitee_id?: number;
+  invited_user_id?: number;
+  invited_username?: string;
+  invited_by?: string;
   status?: string;
   created_at?: string;
   [key: string]: unknown;

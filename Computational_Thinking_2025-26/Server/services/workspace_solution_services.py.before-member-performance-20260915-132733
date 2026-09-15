@@ -1,4 +1,4 @@
-﻿import json
+import json
 from datetime import datetime, timezone
 
 from sqlalchemy.exc import IntegrityError
@@ -487,88 +487,6 @@ def get_workspace_question_attempts(
         for attempt in attempts
     ], None
 
-
-def get_workspace_member_performance(
-    username: str,
-    workspace_id: int,
-    member_user_id: int,
-):
-    user, membership, error = _get_workspace_member(
-        username,
-        workspace_id,
-    )
-
-    if error:
-        return None, error
-
-    if membership.role not in {"owner", "admin"}:
-        return None, "Only workspace admins can view member performance"
-
-    target_user = User.query.filter_by(
-        id=member_user_id,
-    ).first()
-
-    if not target_user:
-        return None, "Member not found"
-
-    target_membership = WorkspaceMember.query.filter_by(
-        workspace_id=workspace_id,
-        user_id=member_user_id,
-    ).first()
-
-    if not target_membership:
-        return None, "Member is not part of this workspace"
-
-    attempts = (
-        WorkspaceQuestionAttempt.query
-        .join(
-            WorkspaceQuestion,
-            WorkspaceQuestion.id == WorkspaceQuestionAttempt.workspace_question_id,
-        )
-        .filter(
-            WorkspaceQuestion.workspace_id == workspace_id,
-            WorkspaceQuestionAttempt.user_id == member_user_id,
-        )
-        .order_by(
-            WorkspaceQuestionAttempt.started_at.desc()
-        )
-        .all()
-    )
-
-    return [
-        {
-            "id": attempt.id,
-            "workspace_question_id": attempt.workspace_question_id,
-            "question": WorkspaceQuestion.query.filter_by(
-                id=attempt.workspace_question_id,
-            ).with_entities(
-                WorkspaceQuestion.question,
-            ).scalar(),
-            "user_id": attempt.user_id,
-            "username": target_user.username,
-            "mode": attempt.mode,
-            "status": attempt.status,
-            "submitted_answer": attempt.submitted_answer,
-            "result": (
-                json.loads(attempt.result_json)
-                if attempt.result_json
-                else None
-            ),
-            "score": attempt.score,
-            "solution_revealed": attempt.solution_revealed,
-            "started_at": (
-                attempt.started_at.isoformat()
-                if attempt.started_at
-                else None
-            ),
-            "completed_at": (
-                attempt.completed_at.isoformat()
-                if attempt.completed_at
-                else None
-            ),
-        }
-        for attempt in attempts
-    ], None
 def _close_workspace_question_attempt(
     username: str,
     workspace_id: int,

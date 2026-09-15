@@ -431,9 +431,6 @@ class WorkspaceComputationService:
                 "Please try again."
             ),
         }, None
-                "Please try again shortly."
-            ),
-        }, None
 
     # =========================================================
     # JSON SERIALIZATION

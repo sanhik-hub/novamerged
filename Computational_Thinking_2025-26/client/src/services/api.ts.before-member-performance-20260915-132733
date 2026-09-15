@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AuthResponse,
   LearnAgainResponse,
   QuestionResponse,
@@ -404,35 +404,6 @@ export function promoteWorkspaceMember(
   });
 }
 
-export function removeWorkspaceMember(
-  workspaceId: number,
-  username: string,
-): WorkspaceDataResponse<unknown> {
-  return request<WorkspaceApiResponse<unknown>>("/WorkspaceRemoveMember", {
-    method: "POST",
-    body: JSON.stringify({
-      WorkspaceId: workspaceId,
-      MemberUsername: username,
-    }),
-  });
-}
-
-export function transferWorkspaceOwnership(
-  workspaceId: number,
-  username: string,
-): WorkspaceDataResponse<unknown> {
-  return request<WorkspaceApiResponse<unknown>>(
-    "/WorkspaceTransferOwnership",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        WorkspaceId: workspaceId,
-        MemberUsername: username,
-      }),
-    },
-  );
-}
-
 export type WorkspaceRoleValue = "member" | "teacher" | "admin" | "owner" | string;
 
 export function updateWorkspaceSettings(
@@ -622,21 +593,6 @@ export function getWorkspaceQuestionAttempts(
   );
 }
 
-export function getWorkspaceMemberPerformance(
-  workspaceId: number,
-  userId: number,
-): WorkspaceDataResponse<WorkspaceAttempt[]> {
-  return request<WorkspaceApiResponse<WorkspaceAttempt[]>>(
-    "/WorkspaceMemberPerformance",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        WorkspaceId: workspaceId,
-        UserId: userId,
-      }),
-    },
-  );
-}
 export function postWorkspaceQuestionFollowUp(
   workspaceId: number,
   questionId: number,
@@ -658,4 +614,3 @@ export function postWorkspaceQuestionFollowUp(
     },
   );
 }
-

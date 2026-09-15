@@ -20,8 +20,6 @@ import {
   acceptWorkspaceInvitation,
   declineWorkspaceInvitation,
   promoteWorkspaceMember,
-  removeWorkspaceMember,
-  transferWorkspaceOwnership,
   updateWorkspaceSettings,
   createWorkspaceQuestion,
   getWorkspaceQuestions,
@@ -1154,11 +1152,8 @@ function WorkspacePanel({
   const [joinCode, setJoinCode] = useState("");
   const [inviteUsername, setInviteUsername] = useState("");
   const [questionText, setQuestionText] = useState("");
-  const [workspaceImage, setWorkspaceImage] = useState<File | null>(null);
-  const [workspaceImagePath, setWorkspaceImagePath] = useState("");
-  const [workspaceImagePreview, setWorkspaceImagePreview] = useState<string | null>(null);
-  const [workspaceImageUploading, setWorkspaceImageUploading] = useState(false);
-  const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);  const [visibility, setVisibility] = useState("public");
+  const [questionType, setQuestionType] = useState("solver");
+  const [visibility, setVisibility] = useState("public");
   const [followUp, setFollowUp] = useState("");
 
   const [guidedAttempt, setGuidedAttempt] = useState<{
@@ -1333,100 +1328,8 @@ function WorkspacePanel({
     }
   }
 
-  function removeWorkspaceImage() {
-    if (workspaceImagePreview) {
-      URL.revokeObjectURL(workspaceImagePreview);
-    }
-
-    setWorkspaceImage(null);
-    setWorkspaceImagePath("");
-    setWorkspaceImagePreview(null);
-  }
-
-  async function selectWorkspaceImage(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    const allowedTypes = new Set([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/heic",
-      "image/heif",
-    ]);
-
-    const allowedExtensions = new Set([
-      "jpg",
-      "jpeg",
-      "png",
-      "webp",
-      "heic",
-      "heif",
-    ]);
-
-    const extension =
-      file.name.split(".").pop()?.toLowerCase() ?? "";
-
-    if (
-      !allowedTypes.has(file.type) &&
-      !allowedExtensions.has(extension)
-    ) {
-      setError(
-        "Please select a JPG, PNG, WebP, HEIC, or HEIF image.",
-      );
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError("Image must be 10 MB or smaller.");
-      event.target.value = "";
-      return;
-    }
-
-    setError("");
-    setWorkspaceImageUploading(true);
-
-    try {
-      const uploadedPath = await uploadQuestionImage(file);
-
-      if (workspaceImagePreview) {
-        URL.revokeObjectURL(workspaceImagePreview);
-      }
-
-      setWorkspaceImage(file);
-      setWorkspaceImagePath(uploadedPath);
-      setWorkspaceImagePreview(URL.createObjectURL(file));
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to upload image.",
-      );
-      setWorkspaceImage(null);
-      setWorkspaceImagePath("");
-      setWorkspaceImagePreview(null);
-    } finally {
-      setWorkspaceImageUploading(false);
-      event.target.value = "";
-    }
-  }
   async function createQuestion() {
-    if (
-      !selectedWorkspace?.id ||
-      (!questionText.trim() && !workspaceImage)
-    ) {
-      return;
-    }
-
-    if (workspaceImageUploading) {
-      return;
-    }
+    if (!selectedWorkspace?.id || !questionText.trim()) return;
 
     setBusy(true);
     setError("");
@@ -1436,24 +1339,20 @@ function WorkspacePanel({
       await createWorkspaceQuestion({
         WorkspaceId: Number(selectedWorkspace.id),
         Question: questionText.trim(),
-        ImagePath: workspaceImagePath || null,
+        QuestionType: questionType,
         Visibility: visibility,
       });
 
       setQuestionText("");
-      removeWorkspaceImage();
       setMessage("Question posted successfully.");
       await refreshQuestions();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to create question.",
-      );
+      setError(err instanceof Error ? err.message : "Unable to create question.");
     } finally {
       setBusy(false);
     }
   }
+
   async function openQuestion(questionId: number) {
     if (!selectedWorkspace?.id) return;
 
@@ -1824,76 +1723,6 @@ function WorkspacePanel({
       setMessage("Follow-up question submitted.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit follow-up.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeMember(member: WorkspaceMember) {
-    if (!selectedWorkspace?.id || !member.username) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Remove ${member.username} from this workspace?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setOpenMemberMenu(null);
-
-    try {
-      await removeWorkspaceMember(
-        Number(selectedWorkspace.id),
-        member.username,
-      );
-      await loadWorkspace(Number(selectedWorkspace.id));
-      setMessage(`${member.username} removed from the workspace.`);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to remove workspace member.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function transferOwnership(member: WorkspaceMember) {
-    if (!selectedWorkspace?.id || !member.username) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Transfer workspace ownership to ${member.username}?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setOpenMemberMenu(null);
-
-    try {
-      await transferWorkspaceOwnership(
-        Number(selectedWorkspace.id),
-        member.username,
-      );
-      await loadWorkspace(Number(selectedWorkspace.id));
-      setMessage(`${member.username} is now the workspace owner.`);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to transfer workspace ownership.",
-      );
     } finally {
       setBusy(false);
     }
@@ -2369,6 +2198,14 @@ function WorkspacePanel({
                     />
 
                     <div className="workspace-form-row">
+                      <select
+                        value={questionType}
+                        onChange={(event) => setQuestionType(event.target.value)}
+                      >
+                        <option value="solver">Solver</option>
+                        <option value="assessment">Assessment</option>
+                        <option value="mcq">MCQ</option>
+                      </select>
 
                       <select
                         value={visibility}
@@ -2378,74 +2215,18 @@ function WorkspacePanel({
                         <option value="private">Private</option>
                       </select>
 
-                      <label
-          className="secondary"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: workspaceImageUploading ? "wait" : "pointer",
-          }}
-        >
-          {workspaceImageUploading ? "Uploading..." : "Attach Image"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-            onChange={(event) => void selectWorkspaceImage(event)}
-            disabled={busy || workspaceImageUploading}
-            style={{ display: "none" }}
-          />
-        </label>
-        <button
+                      <button
                         type="button"
                         className="primary"
                         onClick={() => void createQuestion()}
-                        disabled={busy || workspaceImageUploading || (!questionText.trim() && !workspaceImage)}
+                        disabled={busy || !questionText.trim()}
                       >
                         Post Question
                       </button>
                     </div>
                   </div>
 
-                  {workspaceImagePreview && (
-      <div
-        className="workspace-image-preview-marker"
-        style={{
-          marginTop: "12px",
-          position: "relative",
-          width: "fit-content",
-        }}
-      >
-        <img
-          src={workspaceImagePreview}
-          alt="Attached question"
-          style={{
-            display: "block",
-            maxWidth: "320px",
-            maxHeight: "220px",
-            borderRadius: "10px",
-            border: "1px solid rgba(255,255,255,0.14)",
-            objectFit: "contain",
-          }}
-        />
-        <button
-          type="button"
-          className="secondary"
-          onClick={removeWorkspaceImage}
-          disabled={busy || workspaceImageUploading}
-          style={{
-            position: "absolute",
-            top: "8px",
-            right: "8px",
-            padding: "4px 8px",
-            minWidth: "auto",
-          }}
-        >
-          Remove
-        </button>
-      </div>
-    )}
-    <div className="workspace-question-columns">
+                  <div className="workspace-question-columns">
                     <div className="workspace-question-list">
                       <div className="workspace-card-header">
                         <div>
@@ -2466,7 +2247,7 @@ function WorkspacePanel({
                           No questions have been posted yet.
                         </div>
                       ) : (
-                        questions.map((question, questionIndex) => (
+                        questions.map((question) => (
                           <button
                             type="button"
                             className={`workspace-question-item ${
@@ -2475,15 +2256,11 @@ function WorkspacePanel({
                             key={question.id}
                             onClick={() => void openQuestion(Number(question.id))}
                           >
-                            <strong>
-                              Question {questionIndex + 1}
-                            </strong>
-                            <div className="workspace-question-title">
-                              {question.question}
-                            </div>
+                            <strong>{question.question}</strong>
                             <span>
-                          {question.visibility ?? "public"}
-                        </span>
+                              {question.question_type ?? "solver"} ·{" "}
+                              {question.visibility ?? "public"}
+                            </span>
                           </button>
                         ))
                       )}
@@ -2500,6 +2277,7 @@ function WorkspacePanel({
                           <h3>{selectedQuestion.question}</h3>
 
                           <div className="workspace-detail-meta">
+                            <span>{selectedQuestion.question_type ?? "solver"}</span>
                             <span>{selectedQuestion.visibility ?? "public"}</span>
                             <span>Status: {selectedQuestion.status ?? "active"}</span>
                           </div>
@@ -2616,9 +2394,7 @@ function WorkspacePanel({
                     <div className="workspace-create-row">
                       <input
                         value={inviteUsername}
-                        onChange={(event) =>
-                          setInviteUsername(event.target.value)
-                        }
+                        onChange={(event) => setInviteUsername(event.target.value)}
                         placeholder="Username to invite"
                       />
                       <button
@@ -2632,186 +2408,103 @@ function WorkspacePanel({
                     </div>
                   )}
 
-                  <div className="workspace-member-table">
-                    <div className="workspace-member-table-head">
-                      <span>Username</span>
-                      <span>Role</span>
-                      <span className="workspace-member-actions-heading">
-                        Actions
-                      </span>
-                    </div>
-
+                  <div className="workspace-member-list">
                     {members.length === 0 ? (
                       <div className="workspace-empty">
                         No members found in this workspace.
                       </div>
                     ) : (
                       members.map((member) => {
-                        const memberActionKey = String(
-                          member.user_id ??
-                            member.id ??
-                            member.username ??
-                            "member",
-                        );
-                        const isMemberOwner = member.role === "owner";
-                        const isMemberAdmin = member.role === "admin";
-                        const isCurrentUser =
-                          member.user_id !== undefined &&
-                          String(member.user_id) === String(user.id);
-                        const canRemoveMember =
-                          isAdmin &&
-                          !isCurrentUser &&
-                          !isMemberOwner &&
-                          !!member.username &&
-                          (selectedWorkspace?.role === "owner" ||
-                            !isMemberAdmin);
-                        const canTransferOwnership =
-                          selectedWorkspace?.role === "owner" &&
-                          !isCurrentUser &&
-                          !isMemberOwner &&
-                          !!member.username;
+                        const isMemberAdmin =
+                          member.role === "owner" || member.role === "admin";
 
                         return (
                           <div
-                            className="workspace-member-table-row"
-                            key={memberActionKey}
+                            className="workspace-member-item"
+                            key={String(
+                              member.user_id ??
+                                member.id ??
+                                member.username ??
+                                "member",
+                            )}
                           >
-                            <div className="workspace-member-identity">
-                              <strong>
-                                {member.username ??
-                                  `User ${member.user_id}`}
-                              </strong>
-                            </div>
-
                             <div>
+                              <strong>
+                                {member.username ?? `User ${member.user_id}`}
+                              </strong>
+
                               <span
-                                className={`workspace-member-role workspace-member-role-${member.role ?? "member"}`}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  width: "fit-content",
+                                  marginTop: "6px",
+                                  padding: "3px 9px",
+                                  borderRadius: "999px",
+                                  border: isMemberAdmin
+                                    ? "1px solid rgba(120, 170, 255, 0.45)"
+                                    : "1px solid rgba(255, 255, 255, 0.16)",
+                                  background: isMemberAdmin
+                                    ? "rgba(70, 120, 220, 0.18)"
+                                    : "rgba(255, 255, 255, 0.07)",
+                                  color: "inherit",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  lineHeight: 1.2,
+                                }}
                               >
-                                {isMemberOwner
-                                  ? "Owner"
-                                  : isMemberAdmin
-                                    ? "Admin"
-                                    : "Member"}
+                                {isMemberAdmin ? "Admin" : "Member"}
                               </span>
                             </div>
 
-                            <div className="workspace-member-actions">
-                              {isAdmin && (
-                                <div className="workspace-member-menu">
-                                  <button
-                                    type="button"
-                                    className="workspace-member-menu-button"
-                                    aria-label={`Actions for ${member.username ?? "member"}`}
-                                    title="Member actions"
-                                    onClick={() =>
-                                      setOpenMemberMenu((current) =>
-                                        current === memberActionKey
-                                          ? null
-                                          : memberActionKey,
-                                      )
+                            {isAdmin && member.user_id && (
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => void showMemberPerformance(member)}
+                                disabled={busy || performanceLoading}
+                              >
+                                Performance
+                              </button>
+                            )}
+                            {isAdmin &&
+                              member.username &&
+                              !isMemberAdmin && (
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={async () => {
+                                    if (
+                                      !selectedWorkspace?.id ||
+                                      !member.username
+                                    ) {
+                                      return;
                                     }
-                                    disabled={
-                                      busy || performanceLoading
+
+                                    try {
+                                      await promoteWorkspaceMember(
+                                        Number(selectedWorkspace.id),
+                                        member.username,
+                                      );
+                                      await loadWorkspace(
+                                        Number(selectedWorkspace.id),
+                                      );
+                                      setMessage(
+                                        `${member.username} promoted.`,
+                                      );
+                                    } catch (err) {
+                                      setError(
+                                        err instanceof Error
+                                          ? err.message
+                                          : "Unable to promote member.",
+                                      );
                                     }
-                                  >
-                                    <span aria-hidden="true">?</span>
-                                  </button>
-
-                                  {openMemberMenu === memberActionKey && (
-                                    <div className="workspace-member-menu-panel">
-                                      {member.user_id && (
-                                        <button
-                                          type="button"
-                                          className="workspace-member-menu-item"
-                                          onClick={() => {
-                                            setOpenMemberMenu(null);
-                                            void showMemberPerformance(
-                                              member,
-                                            );
-                                          }}
-                                          disabled={
-                                            busy || performanceLoading
-                                          }
-                                        >
-                                          Performance
-                                        </button>
-                                      )}
-
-                                      {member.username &&
-                                        !isMemberOwner &&
-                                        !isMemberAdmin && (
-                                          <button
-                                            type="button"
-                                            className="workspace-member-menu-item"
-                                            onClick={async () => {
-                                              if (
-                                                !selectedWorkspace?.id ||
-                                                !member.username
-                                              ) {
-                                                return;
-                                              }
-
-                                              setOpenMemberMenu(null);
-
-                                              try {
-                                                await promoteWorkspaceMember(
-                                                  Number(
-                                                    selectedWorkspace.id,
-                                                  ),
-                                                  member.username,
-                                                );
-                                                await loadWorkspace(
-                                                  Number(
-                                                    selectedWorkspace.id,
-                                                  ),
-                                                );
-                                                setMessage(
-                                                  `${member.username} promoted.`,
-                                                );
-                                              } catch (err) {
-                                                setError(
-                                                  err instanceof Error
-                                                    ? err.message
-                                                    : "Unable to promote member.",
-                                                );
-                                              }
-                                            }}
-                                            disabled={busy}
-                                          >
-                                            Promote
-                                          </button>
-                                        )}
-
-                                      {canRemoveMember && (
-                                        <button
-                                          type="button"
-                                          className="workspace-member-menu-item"
-                                          onClick={() =>
-                                            void removeMember(member)
-                                          }
-                                          disabled={busy}
-                                        >
-                                          Remove member
-                                        </button>
-                                      )}
-
-                                      {canTransferOwnership && (
-                                        <button
-                                          type="button"
-                                          className="workspace-member-menu-item workspace-member-menu-item-danger"
-                                          onClick={() =>
-                                            void transferOwnership(member)
-                                          }
-                                          disabled={busy}
-                                        >
-                                          Transfer ownership
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
+                                  }}
+                                  disabled={busy}
+                                >
+                                  Promote
+                                </button>
                               )}
-                            </div>
                           </div>
                         );
                       })
@@ -2930,19 +2623,15 @@ function WorkspacePanel({
                   </div>
                 </div>
 
-                {memberPerformance.map((attempt, attemptIndex) => (
+                {memberPerformance.map((attempt) => (
                   <div
                     key={String(attempt.id)}
                     className="workspace-member-performance-row"
                   >
                     <div>
                       <strong>
-                        Attempt {attemptIndex + 1}
+                        Question #{String(attempt.workspace_question_id)}
                       </strong>
-                      <div className="workspace-member-performance-question">
-                        {attempt.question?.trim() ||
-                          "Question text unavailable"}
-                      </div>
                       <div style={{ opacity: 0.7, fontSize: "13px" }}>
                         {attempt.started_at
                           ? new Date(
@@ -2956,8 +2645,8 @@ function WorkspacePanel({
 
                     <span>
                       {typeof attempt.score === "number"
-                        ? `Score: ${attempt.score}`
-                        : "Score: ?"}
+                        ? attempt.score
+                        : "—"}
                     </span>
                   </div>
                 ))}
@@ -3953,6 +3642,5 @@ function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
 }
 
 export default App;
-
 
 
