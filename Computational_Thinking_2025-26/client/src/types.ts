@@ -1,4 +1,4 @@
-export type User = {
+﻿export type User = {
   id: number | string;
   username: string;
   token?: string;
@@ -130,6 +130,12 @@ export type WorkspaceAttempt = {
   submitted_answer?: string;
   result?: unknown;
   score?: number;
+  correct_count?: number;
+  total_count?: number;
+  score_label?: string;
+  score_percent?: number;
+  image_path?: string | null;
+  question_type?: "solver" | "assessment" | "mcq" | string;
   solution_revealed?: boolean;
   started_at?: string;
   created_at?: string;
@@ -192,3 +198,4 @@ export type WorkspaceSettingsUpdateRequest = {
   AllowMemberPosting: boolean;
   AllowMemberSolving: boolean;
 };
+

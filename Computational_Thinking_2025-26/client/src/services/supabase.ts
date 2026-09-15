@@ -1,4 +1,4 @@
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
+﻿const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const supabaseKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "").trim();
 export const SUPABASE_BUCKET = (import.meta.env.VITE_SUPABASE_BUCKET ?? "Images").trim();
 
@@ -55,4 +55,14 @@ export async function uploadQuestionImage(file: File): Promise<string> {
   }
 
   return filePath;
+}
+export function getQuestionImageUrl(filePath: string): string {
+  const normalizedPath = filePath
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+
+  return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(
+    SUPABASE_BUCKET,
+  )}/${normalizedPath}`;
 }

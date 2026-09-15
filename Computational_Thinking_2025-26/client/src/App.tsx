@@ -36,7 +36,7 @@ import {
   getWorkspaceMemberPerformance,
   postWorkspaceQuestionFollowUp,
 } from "./services/api";
-import { uploadQuestionImage } from "./services/supabase";
+import { getQuestionImageUrl, uploadQuestionImage } from "./services/supabase";
 import type {
   Coordinate,
   LearnAgainResponse,
@@ -1139,6 +1139,7 @@ function WorkspacePanel({
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [questions, setQuestions] = useState<WorkspaceQuestion[]>([]);
   const [selectedQuestion, setSelectedQuestion] = useState<WorkspaceQuestion | null>(null);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [solution, setSolution] = useState<WorkspaceSolution | null>(null);
   const [attempts, setAttempts] = useState<WorkspaceAttempt[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
@@ -2502,6 +2503,21 @@ function WorkspacePanel({
                           <div className="workspace-detail-meta">
                             <span>{selectedQuestion.visibility ?? "public"}</span>
                             <span>Status: {selectedQuestion.status ?? "active"}</span>
+                            {selectedQuestion.image_path && (
+                              <button
+                                type="button"
+                                className="workspace-attachment-button"
+                                onClick={() =>
+                                  setAttachmentUrl(
+                                    getQuestionImageUrl(
+                                      selectedQuestion.image_path as string,
+                                    ),
+                                  )
+                                }
+                              >
+                                View attachment
+                              </button>
+                            )}
                           </div>
 
                           <div className="workspace-compute-row">
@@ -2876,93 +2892,157 @@ function WorkspacePanel({
             ) : memberPerformance.length === 0 ? (
               <p>No attempts recorded for this member.</p>
             ) : (
-              <div style={{ display: "grid", gap: "10px" }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(3, minmax(0, 1fr))",
-                    gap: "10px",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <div className="workspace-stat-card">
-                    <strong>{memberPerformance.length}</strong>
-                    <span>Total Attempts</span>
-                  </div>
+              (() => {
+                const scoredAttempts = memberPerformance.filter(
+                  (attempt) =>
+                    typeof attempt.score_percent === "number" &&
+                    Number.isFinite(attempt.score_percent),
+                );
 
-                  <div className="workspace-stat-card">
-                    <strong>
-                      {
-                        memberPerformance.filter(
-                          (attempt) => attempt.status === "completed",
-                        ).length
-                      }
-                    </strong>
-                    <span>Completed</span>
-                  </div>
+                const averagePercent =
+                  scoredAttempts.length > 0
+                    ? scoredAttempts.reduce(
+                        (sum, attempt) =>
+                          sum + Number(attempt.score_percent),
+                        0,
+                      ) / scoredAttempts.length
+                    : null;
 
-                  <div className="workspace-stat-card">
-                    <strong>
-                      {(() => {
-                        const scored = memberPerformance.filter(
-                          (attempt) =>
-                            typeof attempt.score === "number",
-                        );
-
-                        if (scored.length === 0) {
-                          return "—";
-                        }
-
-                        const average =
-                          scored.reduce(
-                            (sum, attempt) =>
-                              sum + Number(attempt.score),
-                            0,
-                          ) / scored.length;
-
-                        return Number.isFinite(average)
-                          ? `${average.toFixed(1)}`
-                          : "—";
-                      })()}
-                    </strong>
-                    <span>Average Score</span>
-                  </div>
-                </div>
-
-                {memberPerformance.map((attempt, attemptIndex) => (
-                  <div
-                    key={String(attempt.id)}
-                    className="workspace-member-performance-row"
-                  >
-                    <div>
-                      <strong>
-                        Attempt {attemptIndex + 1}
-                      </strong>
-                      <div className="workspace-member-performance-question">
-                        {attempt.question?.trim() ||
-                          "Question text unavailable"}
+                return (
+                  <div className="workspace-performance-content">
+                    <div className="workspace-performance-summary">
+                      <div className="workspace-stat-card">
+                        <strong>{memberPerformance.length}</strong>
+                        <span>Total Attempts</span>
                       </div>
-                      <div style={{ opacity: 0.7, fontSize: "13px" }}>
-                        {attempt.started_at
-                          ? new Date(
-                              attempt.started_at,
-                            ).toLocaleString()
-                          : "Unknown start time"}
+
+                      <div className="workspace-stat-card">
+                        <strong>
+                          {
+                            memberPerformance.filter(
+                              (attempt) => attempt.status === "completed",
+                            ).length
+                          }
+                        </strong>
+                        <span>Completed</span>
+                      </div>
+
+                      <div className="workspace-stat-card">
+                        <strong>
+                          {averagePercent == null
+                            ? "—"
+                            : `${averagePercent.toFixed(1)}%`}
+                        </strong>
+                        <span>Average Score</span>
                       </div>
                     </div>
 
-                    <span>{attempt.status}</span>
+                    <div className="workspace-performance-table">
+                      <div className="workspace-performance-table-head">
+                        <div>Attempt</div>
+                        <div>Question</div>
+                        <div>Score</div>
+                        <div>Status</div>
+                        <div>Started</div>
+                      </div>
 
-                    <span>
-                      {typeof attempt.score === "number"
-                        ? `Score: ${attempt.score}`
-                        : "Score: ?"}
-                    </span>
+                      <div className="workspace-performance-table-body">
+                        {memberPerformance.map((attempt, attemptIndex) => (
+                          <div
+                            key={String(attempt.id ?? attemptIndex)}
+                            className="workspace-performance-table-row"
+                          >
+                            <div className="workspace-performance-attempt-number">
+                              Attempt {attemptIndex + 1}
+                            </div>
+
+                            <div className="workspace-performance-question-cell">
+                              <div className="workspace-performance-question-scroll">
+                                {attempt.question?.trim() ||
+                                  "Question text unavailable"}
+                              </div>
+
+                              {attempt.image_path && (
+                                <button
+                                  type="button"
+                                  className="workspace-performance-attachment"
+                                  onClick={() =>
+                                    setAttachmentUrl(
+                                      getQuestionImageUrl(
+                                        attempt.image_path as string,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  View attachment
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="workspace-performance-score">
+                              {attempt.score_label ??
+                                (typeof attempt.score === "number"
+                                  ? String(attempt.score)
+                                  : "—")}
+                              {typeof attempt.score_percent === "number" && (
+                                <small>
+                                  {attempt.score_percent.toFixed(1)}%
+                                </small>
+                              )}
+                            </div>
+
+                            <div className="workspace-performance-status">
+                              {attempt.status ?? "unknown"}
+                            </div>
+
+                            <div className="workspace-performance-date">
+                              {attempt.started_at
+                                ? new Date(
+                                    attempt.started_at,
+                                  ).toLocaleString()
+                                : "Unknown"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })()
             )}
+          </div>
+        </div>
+      )}
+      {attachmentUrl && (
+        <div
+          className="workspace-attachment-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Question attachment"
+          onClick={() => setAttachmentUrl(null)}
+        >
+          <div
+            className="workspace-attachment-viewer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="workspace-attachment-viewer-header">
+              <strong>Question Attachment</strong>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setAttachmentUrl(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="workspace-attachment-image-wrap">
+              <img
+                src={attachmentUrl}
+                alt="Original question attachment"
+                className="workspace-attachment-image"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -3953,6 +4033,7 @@ function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
 }
 
 export default App;
+
 
 
 

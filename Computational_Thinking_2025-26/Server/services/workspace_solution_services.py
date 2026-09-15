@@ -502,22 +502,20 @@ def get_workspace_member_performance(
         return None, error
 
     if membership.role not in {"owner", "admin"}:
-        return None, "Only workspace admins can view member performance"
+        return None, "Only workspace owners and admins can view member performance."
 
-    target_user = User.query.filter_by(
-        id=member_user_id,
-    ).first()
+    target_user = User.query.filter_by(id=member_user_id).first()
 
-    if not target_user:
-        return None, "Member not found"
+    if target_user is None:
+        return None, "User not found."
 
     target_membership = WorkspaceMember.query.filter_by(
         workspace_id=workspace_id,
         user_id=member_user_id,
     ).first()
 
-    if not target_membership:
-        return None, "Member is not part of this workspace"
+    if target_membership is None:
+        return None, "User is not a member of this workspace."
 
     attempts = (
         WorkspaceQuestionAttempt.query
@@ -530,45 +528,144 @@ def get_workspace_member_performance(
             WorkspaceQuestionAttempt.user_id == member_user_id,
         )
         .order_by(
-            WorkspaceQuestionAttempt.started_at.desc()
+            WorkspaceQuestionAttempt.started_at.asc()
         )
         .all()
     )
 
-    return [
-        {
-            "id": attempt.id,
-            "workspace_question_id": attempt.workspace_question_id,
-            "question": WorkspaceQuestion.query.filter_by(
-                id=attempt.workspace_question_id,
-            ).with_entities(
-                WorkspaceQuestion.question,
-            ).scalar(),
-            "user_id": attempt.user_id,
-            "username": target_user.username,
-            "mode": attempt.mode,
-            "status": attempt.status,
-            "submitted_answer": attempt.submitted_answer,
-            "result": (
-                json.loads(attempt.result_json)
-                if attempt.result_json
-                else None
-            ),
-            "score": attempt.score,
-            "solution_revealed": attempt.solution_revealed,
-            "started_at": (
-                attempt.started_at.isoformat()
-                if attempt.started_at
-                else None
-            ),
-            "completed_at": (
-                attempt.completed_at.isoformat()
-                if attempt.completed_at
-                else None
-            ),
-        }
+    if not attempts:
+        return [], None
+
+    question_ids = {
+        attempt.workspace_question_id
         for attempt in attempts
-    ], None
+        if attempt.workspace_question_id is not None
+    }
+
+    questions = (
+        WorkspaceQuestion.query
+        .filter(WorkspaceQuestion.id.in_(question_ids))
+        .all()
+    )
+
+    question_by_id = {
+        question.id: question
+        for question in questions
+    }
+
+    performance = []
+
+    for attempt in attempts:
+        question = question_by_id.get(
+            attempt.workspace_question_id
+        )
+
+        result = None
+
+        if attempt.result_json:
+            try:
+                result = json.loads(attempt.result_json)
+            except (TypeError, ValueError):
+                result = None
+
+        correct_count = None
+        total_count = None
+        score_label = None
+        score_percent = None
+
+        if isinstance(result, dict):
+            questions_data = result.get("questions")
+
+            if isinstance(questions_data, list):
+                total_count = len(questions_data)
+
+            raw_correct = result.get("correct")
+
+            if isinstance(raw_correct, (int, float)):
+                correct_count = int(raw_correct)
+
+            if (
+                correct_count is None
+                and total_count
+                and isinstance(result.get("answers"), dict)
+            ):
+                computed_correct = 0
+
+                for index, question_data in enumerate(questions_data):
+                    if not isinstance(question_data, dict):
+                        continue
+
+                    correct_option = question_data.get("correct_option")
+                    submitted_option = result["answers"].get(str(index))
+
+                    if (
+                        isinstance(correct_option, int)
+                        and isinstance(submitted_option, int)
+                        and correct_option == submitted_option
+                    ):
+                        computed_correct += 1
+
+                correct_count = computed_correct
+
+        if (
+            isinstance(correct_count, int)
+            and isinstance(total_count, int)
+            and total_count > 0
+        ):
+            correct_count = max(0, min(correct_count, total_count))
+            score_label = f"{correct_count}/{total_count}"
+            score_percent = round(
+                (correct_count / total_count) * 100,
+                2,
+            )
+        elif isinstance(attempt.score, (int, float)):
+            score_label = str(attempt.score)
+
+        performance.append(
+            {
+                "id": attempt.id,
+                "workspace_question_id": attempt.workspace_question_id,
+                "question": (
+                    question.question
+                    if question is not None
+                    else None
+                ),
+                "image_path": (
+                    question.image_path
+                    if question is not None
+                    else None
+                ),
+                "question_type": (
+                    question.question_type
+                    if question is not None
+                    else None
+                ),
+                "user_id": attempt.user_id,
+                "username": target_user.username,
+                "mode": attempt.mode,
+                "status": attempt.status,
+                "submitted_answer": attempt.submitted_answer,
+                "result": result,
+                "score": attempt.score,
+                "correct_count": correct_count,
+                "total_count": total_count,
+                "score_label": score_label,
+                "score_percent": score_percent,
+                "solution_revealed": attempt.solution_revealed,
+                "started_at": (
+                    attempt.started_at.isoformat()
+                    if attempt.started_at
+                    else None
+                ),
+                "completed_at": (
+                    attempt.completed_at.isoformat()
+                    if attempt.completed_at
+                    else None
+                ),
+            }
+        )
+
+    return performance, None
 def _close_workspace_question_attempt(
     username: str,
     workspace_id: int,
@@ -665,3 +762,4 @@ def terminate_workspace_question_attempt(
         attempt_id=attempt_id,
         status="terminated",
     )
+
