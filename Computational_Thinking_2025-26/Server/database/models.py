@@ -1,6 +1,11 @@
 from database.db import db
 
+class Admin(db.Model):
+    __tablename__ = "admin"
 
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False, unique=True)
+    password = db.Column(db.String(255), nullable=False)
 class User(db.Model):
     __tablename__ = "users"
 
@@ -19,7 +24,7 @@ class QuestionsNScore(db.Model):
     ai_answers = db.Column(db.Text, nullable=False)
     wrong_answered_question = db.Column(db.Text, nullable=True)
     score = db.Column(db.String(80), nullable=True)
-
+    remarks = db.Column(db.Text, nullable=True)
 
 # ============================================================
 # WORKSPACES

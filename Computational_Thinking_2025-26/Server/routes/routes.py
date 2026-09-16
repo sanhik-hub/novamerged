@@ -46,6 +46,11 @@ from services.questionAPI import get_Doubtresponse, get_response
 from services.score_services import add_ScoreDB
 from services.graphical_question import get_graphical_response
 from services.history_services import get_user_history, get_history_detail
+from services.admin_services import (
+    login_admin,
+    get_admin_user_history,
+    get_admin_history_detail,
+)
 
 
 def is_valid_coordinates(value):
@@ -440,6 +445,158 @@ def register_routes(app):
     # -------------------------
     # GET USER HISTORY
     # -------------------------
+
+    # -------------------------
+    # ADMIN LOGIN
+    # -------------------------
+
+    @app.route("/AdminLogin", methods=["POST"])
+    def receive_Admin_login_data():
+        data = request.get_json(silent=True) or {}
+
+        if not isinstance(data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {"Username", "Password"}
+        missing_fields = required_fields - data.keys()
+
+        if missing_fields:
+            return {"error": f"Missing fields: {sorted(missing_fields)}"}, 400
+
+        username = data.get("Username")
+        password = data.get("Password")
+
+        if not isinstance(username, str) or not isinstance(password, str):
+            return {"error": "Username and Password must both be strings"}, 400
+
+        admin, error = login_admin(username, password)
+
+        if error == "Username not found":
+            return {"error": error}, 404
+
+        if error == "Incorrect password":
+            return {"error": error}, 401
+
+        if error:
+            return {"error": error}, 500
+
+        return {
+            "message": "Admin login successful",
+            "data": {
+                "id": admin.id,
+                "username": admin.username,
+            },
+        }, 200
+
+
+    # -------------------------
+    # ADMIN STUDENT HISTORY
+    # -------------------------
+
+    @app.route("/AdminUserHistory", methods=["POST"])
+    def get_admin_user_history_data():
+        data = request.get_json(silent=True) or {}
+
+        if not isinstance(data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {
+            "AdminUsername",
+            "AdminPassword",
+            "Username",
+        }
+        missing_fields = required_fields - data.keys()
+
+        if missing_fields:
+            return {"error": f"Missing fields: {sorted(missing_fields)}"}, 400
+
+        admin_username = data.get("AdminUsername")
+        admin_password = data.get("AdminPassword")
+        student_username = data.get("Username")
+
+        if (
+            not isinstance(admin_username, str)
+            or not isinstance(admin_password, str)
+            or not isinstance(student_username, str)
+        ):
+            return {
+                "error": "AdminUsername, AdminPassword, and Username must all be strings"
+            }, 400
+
+        history, error = get_admin_user_history(
+            admin_username,
+            admin_password,
+            student_username,
+        )
+
+        if error in {"Username not found", "Incorrect password", "Incorrectpassword"}:
+            return {"error": error}, 401
+
+        if error:
+            return {"error": error}, 500
+
+        return {
+            "message": "Admin history retrieved successfully",
+            "data": history,
+        }, 200
+
+
+    @app.route("/AdminHistoryDetail", methods=["POST"])
+    def get_admin_history_detail_data():
+        data = request.get_json(silent=True) or {}
+
+        if not isinstance(data, dict):
+            return {"error": "Invalid JSON payload"}, 400
+
+        required_fields = {
+            "AdminUsername",
+            "AdminPassword",
+            "Username",
+            "HistoryId",
+        }
+        missing_fields = required_fields - data.keys()
+
+        if missing_fields:
+            return {"error": f"Missing fields: {sorted(missing_fields)}"}, 400
+
+        history_id = data.get("HistoryId")
+
+        if isinstance(history_id, bool) or not isinstance(history_id, int):
+            return {"error": "HistoryId must be an integer"}, 400
+
+        admin_username = data.get("AdminUsername")
+        admin_password = data.get("AdminPassword")
+        student_username = data.get("Username")
+
+        if (
+            not isinstance(admin_username, str)
+            or not isinstance(admin_password, str)
+            or not isinstance(student_username, str)
+        ):
+            return {
+                "error": "AdminUsername, AdminPassword, and Username must all be strings"
+            }, 400
+
+        detail, error = get_admin_history_detail(
+            admin_username,
+            admin_password,
+            student_username,
+            history_id,
+        )
+
+        if error == "History entry not found":
+            return {"error": error}, 404
+
+        if error in {"Username not found", "Incorrect password", "Incorrectpassword"}:
+            return {"error": error}, 401
+
+        if error:
+            return {"error": error}, 500
+
+        return {
+            "message": "Admin history detail retrieved successfully",
+            "data": detail,
+        }, 200
 
     @app.route("/GetUserHistory", methods=["POST"])
     def receive_GetUserHistory_data():
@@ -2350,4 +2507,6 @@ def register_routes(app):
             return {"error": error}, 400
 
         return {"data": result}, 200
+
+
 
