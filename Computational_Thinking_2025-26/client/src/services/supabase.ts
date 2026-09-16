@@ -66,3 +66,4 @@ export function getQuestionImageUrl(filePath: string): string {
     SUPABASE_BUCKET,
   )}/${normalizedPath}`;
 }
+
