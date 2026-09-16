@@ -1,0 +1,10 @@
+Flask
+Flask-SQLAlchemy
+python-dotenv
+psycopg2-binary
+flask-cors
+google-genai
+supabase
+gunicorn
+argon2-cffi
+rapidfuzz 

@@ -1,0 +1,88 @@
+﻿import importlib
+
+
+class ProviderRouter:
+
+    _PROVIDER_CLASSES = {
+        "wolfram": (
+            "providers.wolfram_engine.provider",
+            "WolframProvider",
+        ),
+        "sympy": (
+            "providers.sympy.provider",
+            "SymPyProvider",
+        ),
+        "local_llm": (
+            "providers.local_llm.provider",
+            "LocalLLMProvider",
+        ),
+        "gemini": (
+            "providers.gemini.provider",
+            "GeminiProvider",
+        ),
+    }
+
+    def __init__(self):
+        self.providers = {}
+
+    def _create_provider(self, name: str):
+        provider_info = self._PROVIDER_CLASSES.get(name)
+
+        if provider_info is None:
+            raise ValueError(f"Unknown provider: {name}")
+
+        module_name, class_name = provider_info
+
+        try:
+            module = importlib.import_module(module_name)
+            provider_class = getattr(module, class_name)
+            provider = provider_class()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Provider '{name}' could not be loaded: {exc}"
+            ) from exc
+
+        self.providers[name] = provider
+        return provider
+
+    def get_provider(self, name: str):
+        provider = self.providers.get(name)
+
+        if provider is None:
+            provider = self._create_provider(name)
+
+        return provider
+
+    def calculate(
+        self,
+        query: str,
+        provider: str = "wolfram",
+        image_path: str | None = None,
+    ):
+        selected = self.get_provider(provider)
+
+        if provider == "gemini":
+            return selected.calculate(
+                query,
+                image_path=image_path,
+            )
+
+        return selected.calculate(query)
+
+    def generate(
+        self,
+        prompt: str,
+        max_tokens=None,
+        temperature=None,
+        system_prompt=None,
+        enable_thinking=False,
+    ):
+        provider = self.get_provider("local_llm")
+
+        return provider.generate(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system_prompt=system_prompt,
+            enable_thinking=enable_thinking,
+        )

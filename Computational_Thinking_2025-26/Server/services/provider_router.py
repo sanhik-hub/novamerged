@@ -1,31 +1,58 @@
-﻿from providers.wolfram_engine.provider import WolframProvider
-from providers.sympy.provider import SymPyProvider
-from providers.local_llm.provider import LocalLLMProvider
-from providers.gemini.provider import GeminiProvider
+﻿import importlib
 
 
 class ProviderRouter:
 
+    _PROVIDER_CLASSES = {
+        "sympy": (
+            "providers.sympy.provider",
+            "SymPyProvider",
+        ),
+        "local_llm": (
+            "providers.local_llm.provider",
+            "LocalLLMProvider",
+        ),
+        "gemini": (
+            "providers.gemini.provider",
+            "GeminiProvider",
+        ),
+    }
+
     def __init__(self):
-        self.providers = {
-            "wolfram": WolframProvider(),
-            "sympy": SymPyProvider(),
-            "local_llm": LocalLLMProvider(),
-            "gemini": GeminiProvider(),
-        }
+        self.providers = {}
+
+    def _create_provider(self, name: str):
+        provider_info = self._PROVIDER_CLASSES.get(name)
+
+        if provider_info is None:
+            raise ValueError(f"Unknown provider: {name}")
+
+        module_name, class_name = provider_info
+
+        try:
+            module = importlib.import_module(module_name)
+            provider_class = getattr(module, class_name)
+            provider = provider_class()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Provider '{name}' could not be loaded: {exc}"
+            ) from exc
+
+        self.providers[name] = provider
+        return provider
 
     def get_provider(self, name: str):
         provider = self.providers.get(name)
 
         if provider is None:
-            raise ValueError(f"Unknown provider: {name}")
+            provider = self._create_provider(name)
 
         return provider
 
     def calculate(
         self,
         query: str,
-        provider: str = "wolfram",
+        provider: str = "sympy",
         image_path: str | None = None,
     ):
         selected = self.get_provider(provider)

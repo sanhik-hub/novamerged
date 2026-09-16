@@ -1,0 +1,62 @@
+﻿#define MyAppName "PrismAI"
+#define MyAppVersion "1.0.0"
+#define MyAppPublisher "PrismAI"
+#define MyAppExeName "PrismLauncher.exe"
+
+[Setup]
+AppId={{8F8C2A2D-8B7B-4E0B-9F15-7A1A2026C001}}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+DefaultDirName={commonpf}\PrismAI
+DefaultGroupName=PrismAI
+DisableProgramGroupPage=yes
+
+OutputDir=..\installer-output
+OutputBaseFilename=PrismAI-Setup
+
+SetupIconFile=..\assets\prism.ico
+UninstallDisplayIcon={app}\PrismLauncher.exe
+
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+
+PrivilegesRequired=admin
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
+
+[Files]
+
+; Main launcher
+Source: "..\dist\PrismLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+; Main Prism frontend
+Source: "..\client\dist\*"; DestDir: "{app}\client"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Admin frontend
+Source: "..\Admin\dist\*"; DestDir: "{app}\admin"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Computational backend
+Source: "..\dist\PrismAi\*"; DestDir: "{app}\server"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\Server\.env"; DestDir: "{commonappdata}\PrismAI\config"; Flags: ignoreversion
+
+[Icons]
+
+; Start Menu - main application
+Name: "{group}\Prism"; Filename: "{app}\PrismLauncher.exe"; IconFilename: "{app}\PrismLauncher.exe"; WorkingDir: "{app}"
+
+; Start Menu - Admin
+Name: "{group}\Prism Admin"; Filename: "{app}\PrismLauncher.exe"; Parameters: "--admin"; IconFilename: "{app}\PrismLauncher.exe"; WorkingDir: "{app}"
+
+; Optional desktop shortcut
+Name: "{autodesktop}\Prism"; Filename: "{app}\PrismLauncher.exe"; IconFilename: "{app}\PrismLauncher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[Run]
+
+Filename: "{app}\PrismLauncher.exe"; Description: "Launch PrismAI Control Center"; Flags: nowait postinstall skipifsilent
+

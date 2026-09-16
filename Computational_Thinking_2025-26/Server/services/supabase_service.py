@@ -1,9 +1,22 @@
-import os
+﻿import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from supabase import create_client
 
-load_dotenv()
+
+def load_server_environment():
+    candidates = [
+        Path(__file__).resolve().parents[1] / ".env",
+        Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "PrismAI" / "config" / ".env",
+    ]
+
+    for env_path in candidates:
+        if env_path.is_file():
+            load_dotenv(env_path, override=False)
+
+
+load_server_environment()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
@@ -16,6 +29,7 @@ supabase = create_client(
     SUPABASE_URL,
     SUPABASE_KEY
 )
+
 
 def create_signedURL(img_path):
     if not img_path:
@@ -41,7 +55,3 @@ def create_signedURL(img_path):
         raise RuntimeError(f"Supabase did not return a signed URL: {signed_response}")
 
     return signed_url
-
-   
-        
-

@@ -8,4 +8,4 @@ supabase
 gunicorn
 argon2-cffi
 rapidfuzz 
-wolframclient
+oauthlib

@@ -1214,8 +1214,20 @@ function WorkspacePanel({
     setError("");
 
     try {
-      const response = await getWorkspaces();
-      setWorkspaces(Array.isArray(response.data) ? response.data : []);
+      const [workspaceResponse, invitationResponse] = await Promise.all([
+        getWorkspaces(),
+        getWorkspaceInvitations(),
+      ]);
+
+      setWorkspaces(
+        Array.isArray(workspaceResponse.data) ? workspaceResponse.data : [],
+      );
+
+      setInvitations(
+        Array.isArray(invitationResponse.data)
+          ? invitationResponse.data
+          : [],
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load workspaces.");
     } finally {
