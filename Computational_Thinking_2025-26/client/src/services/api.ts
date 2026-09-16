@@ -36,10 +36,10 @@ export class ApiError extends Error {
 function friendlyHttpMessage(status: number, serverMessage?: string): string {
   if (serverMessage) {
     if (serverMessage.includes("Failed to get response from Gemini API")) {
-      return "Nova AI could not generate a practice session. Please try again.";
+      return "Prism AI could not generate a practice session. Please try again.";
     }
     if (serverMessage.includes("Database")) {
-      return "Nova AI is having trouble accessing your account. Please try again.";
+      return "Prism AI is having trouble accessing your account. Please try again.";
     }
     return serverMessage;
   }
@@ -54,9 +54,9 @@ function friendlyHttpMessage(status: number, serverMessage?: string): string {
     case 409:
       return "That username already exists.";
     case 500:
-      return "Nova AI is temporarily unavailable. Please try again.";
+      return "Prism AI is temporarily unavailable. Please try again.";
     default:
-      return "Unable to connect to Nova AI. Please try again.";
+      return "Unable to connect to Prism AI. Please try again.";
   }
 }
 
@@ -66,7 +66,7 @@ async function request<T>(
 ): Promise<T> {
   if (!API_URL) {
     throw new ApiError(
-      "Nova AI is not configured. Set VITE_API_URL in the frontend environment.",
+      "Prism AI is not configured. Set VITE_API_URL in the frontend environment.",
     );
   }
 
@@ -84,7 +84,7 @@ async function request<T>(
       },
     });
   } catch {
-    throw new ApiError("Unable to connect to Nova AI. Please try again.");
+    throw new ApiError("Unable to connect to Prism AI. Please try again.");
   }
 
   const raw = await response.text();
@@ -96,7 +96,7 @@ async function request<T>(
       data = JSON.parse(raw);
     } catch {
       throw new ApiError(
-        "Nova AI returned an invalid response.",
+        "Prism AI returned an invalid response.",
         response.status,
       );
     }
@@ -658,4 +658,5 @@ export function postWorkspaceQuestionFollowUp(
     },
   );
 }
+
 

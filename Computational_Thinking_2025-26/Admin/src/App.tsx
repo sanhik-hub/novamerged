@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { adminLogin, getStudentHistory, getStudentHistoryDetail, type AdminUser, type HistoryDetail, type HistoryEntry } from "./api";
 import "./App.css";
 
@@ -7,20 +7,20 @@ type StoredAdminSession = { admin: AdminUser; password: string };
 
 const ADMIN_SESSION_KEY = "nova_ai_admin_session";
 
-// Floating math symbols — same set as client
+// Floating math symbols â€” same set as client
 const MATH_SYMBOLS = [
-  { char: "∑", size: 110, left: 5,  delay: 0,   duration: 18 },
-  { char: "∫", size: 130, left: 15, delay: 3,   duration: 22 },
-  { char: "π",  size: 95,  left: 28, delay: 6,   duration: 16 },
-  { char: "√",  size: 105, left: 42, delay: 1.5, duration: 20 },
-  { char: "∞",  size: 90,  left: 58, delay: 9,   duration: 25 },
-  { char: "Δ",  size: 100, left: 72, delay: 4,   duration: 19 },
-  { char: "θ",  size: 85,  left: 85, delay: 7,   duration: 21 },
-  { char: "λ",  size: 115, left: 93, delay: 2,   duration: 17 },
-  { char: "∂",  size: 92,  left: 35, delay: 11,  duration: 23 },
-  { char: "≠",  size: 88,  left: 65, delay: 5,   duration: 15 },
-  { char: "∇",  size: 108, left: 50, delay: 13,  duration: 24 },
-  { char: "∈",  size: 82,  left: 78, delay: 8,   duration: 20 },
+  { char: "âˆ‘", size: 110, left: 5,  delay: 0,   duration: 18 },
+  { char: "âˆ«", size: 130, left: 15, delay: 3,   duration: 22 },
+  { char: "Ï€",  size: 95,  left: 28, delay: 6,   duration: 16 },
+  { char: "âˆš",  size: 105, left: 42, delay: 1.5, duration: 20 },
+  { char: "âˆž",  size: 90,  left: 58, delay: 9,   duration: 25 },
+  { char: "Î”",  size: 100, left: 72, delay: 4,   duration: 19 },
+  { char: "Î¸",  size: 85,  left: 85, delay: 7,   duration: 21 },
+  { char: "Î»",  size: 115, left: 93, delay: 2,   duration: 17 },
+  { char: "âˆ‚",  size: 92,  left: 35, delay: 11,  duration: 23 },
+  { char: "â‰ ",  size: 88,  left: 65, delay: 5,   duration: 15 },
+  { char: "âˆ‡",  size: 108, left: 50, delay: 13,  duration: 24 },
+  { char: "âˆˆ",  size: 82,  left: 78, delay: 8,   duration: 20 },
 ];
 
 function MathBackground() {
@@ -192,11 +192,11 @@ export default function App() {
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      {/* ── Topbar ── */}
+      {/* â”€â”€ Topbar â”€â”€ */}
       <header className="topbar">
         <div className="brand">
-          <span className="brand-icon">∑</span>
-          <span className="brand-label">nova ai</span>
+          <span className="brand-icon">âˆ‘</span>
+          <span className="brand-label">prism ai</span>
           <span className="brand-sub">admin</span>
         </div>
         {admin && (
@@ -208,7 +208,7 @@ export default function App() {
 
       <main className="admin-main">
 
-        {/* ════════════ LOGIN ════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â• LOGIN â•â•â•â•â•â•â•â•â•â•â•â• */}
         {view === "login" && (
           <section className="auth-card">
             <span className="eyebrow">Restricted access</span>
@@ -240,18 +240,18 @@ export default function App() {
               </label>
               {error && <div className="error">{error}</div>}
               <button className="primary full" disabled={loading}>
-                {loading ? "Signing in…" : "Log in"}
+                {loading ? "Signing inâ€¦" : "Log in"}
               </button>
             </form>
           </section>
         )}
 
-        {/* ════════════ SEARCH ════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â• SEARCH â•â•â•â•â•â•â•â•â•â•â•â• */}
         {view === "search" && (
           <section className="workspace">
             {hasSearched && (
               <button className="back-button" onClick={resetStudentSearch}>
-                ← Back
+                â† Back
               </button>
             )}
 
@@ -271,7 +271,7 @@ export default function App() {
                 aria-label="Student username"
               />
               <button className="primary" disabled={loading}>
-                {loading ? "Loading…" : "Search"}
+                {loading ? "Loadingâ€¦" : "Search"}
               </button>
             </form>
 
@@ -304,11 +304,11 @@ export default function App() {
           </section>
         )}
 
-        {/* ════════════ DETAIL ════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â• DETAIL â•â•â•â•â•â•â•â•â•â•â•â• */}
         {view === "detail" && detail && (
           <section className="workspace">
             <button className="back-button" onClick={() => setView("search")}>
-              ← Back to sessions
+              â† Back to sessions
             </button>
 
             {/* Score card */}
@@ -345,7 +345,7 @@ export default function App() {
                         className={`review-status ${isWrong ? "incorrect" : "correct"}`}
                         aria-label={isWrong ? "Incorrect" : "Correct"}
                       >
-                        {isWrong ? "×" : "✓"}
+                        {isWrong ? "Ã—" : "âœ“"}
                       </div>
                       <div className="review-content">
                         <div className="review-number">Question {index + 1}</div>
@@ -375,3 +375,4 @@ export default function App() {
     </div>
   );
 }
+

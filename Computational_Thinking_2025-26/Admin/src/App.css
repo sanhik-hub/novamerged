@@ -1,5 +1,5 @@
-/* ============================================================
-   NOVA AI ADMIN — Mathematical Theme (mirrors client design)
+﻿/* ============================================================
+   PRISM AI ADMIN â€” Mathematical Theme (mirrors client design)
    ============================================================ */
 
 :root {
@@ -25,7 +25,7 @@
   --shadow-glow: 0 0 28px rgba(124, 58, 237, .22);
 }
 
-/* ── Reset ── */
+/* â”€â”€ Reset â”€â”€ */
 * { box-sizing: border-box; }
 button, input { font: inherit; max-width: 100%; }
 button { cursor: pointer; }
@@ -35,7 +35,7 @@ html { background: var(--bg); }
 body { background: var(--bg); color: var(--text); }
 h1, h2, h3, p { margin-top: 0; }
 
-/* ── Input visibility ── */
+/* â”€â”€ Input visibility â”€â”€ */
 input, textarea, select {
   color: var(--text) !important;
   -webkit-text-fill-color: var(--text) !important;
@@ -75,7 +75,7 @@ input::placeholder, textarea::placeholder {
   100% { transform: translateY(-110vh) rotate(25deg) scale(1.15); opacity: 0; }
 }
 
-/* ── Ambient glows ── */
+/* â”€â”€ Ambient glows â”€â”€ */
 .ambient {
   position: absolute;
   border-radius: 50%;
@@ -199,7 +199,7 @@ input::placeholder, textarea::placeholder {
   color: var(--text);
 }
 
-/* ── Typography helpers ── */
+/* â”€â”€ Typography helpers â”€â”€ */
 .eyebrow {
   color: var(--accent-hi);
   font-size: 11px;
@@ -209,7 +209,7 @@ input::placeholder, textarea::placeholder {
 }
 .muted { color: var(--text-2); line-height: 1.55; }
 
-/* ── Form fields ── */
+/* â”€â”€ Form fields â”€â”€ */
 label {
   display: block;
   margin-top: 20px;
@@ -233,7 +233,7 @@ input:focus {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* ── Buttons ── */
+/* â”€â”€ Buttons â”€â”€ */
 .primary {
   border: 1px solid var(--accent);
   border-radius: 9px;
@@ -259,7 +259,7 @@ button:focus-visible, input:focus-visible {
   outline-offset: 2px;
 }
 
-/* ── Error box ── */
+/* â”€â”€ Error box â”€â”€ */
 .error {
   margin-top: 14px;
   padding: 10px 14px;
@@ -273,7 +273,7 @@ button:focus-visible, input:focus-visible {
 /* ================================================================
    SEARCH / WORKSPACE
    ================================================================ */
-.workspace { /* no extra styles needed — uses admin-main padding */ }
+.workspace { /* no extra styles needed â€” uses admin-main padding */ }
 
 .page-heading {
   display: flex;
@@ -502,7 +502,7 @@ button:focus-visible, input:focus-visible {
 }
 
 /* ================================================================
-   RESPONSIVE — max-width: 600px
+   RESPONSIVE â€” max-width: 600px
    ================================================================ */
 @media (max-width: 600px) {
   .topbar { height: 56px; padding: 0 14px; }
@@ -537,3 +537,4 @@ button:focus-visible, input:focus-visible {
   .review-item { padding: 13px 12px; }
   .review-question, .review-answer, .remarks p { overflow-wrap: anywhere; }
 }
+

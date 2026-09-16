@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env.VITE_API_URL ?? "").trim().replace(/\/$/, "");
+﻿const API_URL = (import.meta.env.VITE_API_URL ?? "").trim().replace(/\/$/, "");
 
 export type AdminUser = { id: number; username: string };
 export type HistoryEntry = { id: number; user_question: string; score: string };
@@ -23,7 +23,7 @@ async function request<T>(endpoint: string, body: Record<string, unknown>): Prom
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error("Unable to connect to Nova AI.");
+    throw new Error("Unable to connect to Prism AI.");
   }
 
   const data = await response.json().catch(() => ({})) as { error?: string };
@@ -59,3 +59,4 @@ export function getStudentHistoryDetail(
     HistoryId: historyId,
   });
 }
+
