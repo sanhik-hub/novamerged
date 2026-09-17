@@ -9,18 +9,22 @@ const ADMIN_SESSION_KEY = "nova_ai_admin_session";
 
 // Floating math symbols â€” same set as client
 const MATH_SYMBOLS = [
-  { char: "âˆ‘", size: 110, left: 5,  delay: 0,   duration: 18 },
-  { char: "âˆ«", size: 130, left: 15, delay: 3,   duration: 22 },
-  { char: "Ï€",  size: 95,  left: 28, delay: 6,   duration: 16 },
-  { char: "âˆš",  size: 105, left: 42, delay: 1.5, duration: 20 },
-  { char: "âˆž",  size: 90,  left: 58, delay: 9,   duration: 25 },
-  { char: "Î”",  size: 100, left: 72, delay: 4,   duration: 19 },
-  { char: "Î¸",  size: 85,  left: 85, delay: 7,   duration: 21 },
-  { char: "Î»",  size: 115, left: 93, delay: 2,   duration: 17 },
-  { char: "âˆ‚",  size: 92,  left: 35, delay: 11,  duration: 23 },
-  { char: "â‰ ",  size: 88,  left: 65, delay: 5,   duration: 15 },
-  { char: "âˆ‡",  size: 108, left: 50, delay: 13,  duration: 24 },
-  { char: "âˆˆ",  size: 82,  left: 78, delay: 8,   duration: 20 },
+  { char: "∑", size: 110, left: 5, delay: 0, duration: 18 },
+  { char: "∫", size: 130, left: 15, delay: 3, duration: 22 },
+  { char: "π", size: 95, left: 28, delay: 6, duration: 16 },
+  { char: "√", size: 105, left: 42, delay: 1.5, duration: 20 },
+
+  // Science
+  { char: "⚛", size: 100, left: 58, delay: 9, duration: 25 },
+  { char: "H₂O", size: 82, left: 72, delay: 4, duration: 19 },
+  { char: "DNA", size: 78, left: 85, delay: 7, duration: 21 },
+  { char: "CO₂", size: 82, left: 93, delay: 2, duration: 17 },
+
+  // Computer Science / AI
+  { char: "</>", size: 82, left: 35, delay: 11, duration: 23 },
+  { char: "0101", size: 72, left: 65, delay: 5, duration: 15 },
+  { char: "AI", size: 88, left: 50, delay: 13, duration: 24 },
+  { char: "{ }", size: 82, left: 78, delay: 8, duration: 20 },
 ];
 
 function MathBackground() {
@@ -195,8 +199,8 @@ export default function App() {
       {/* â”€â”€ Topbar â”€â”€ */}
       <header className="topbar">
         <div className="brand">
-          <span className="brand-icon">âˆ‘</span>
-          <span className="brand-label">prism ai</span>
+          <span className="brand-icon">∑</span>
+          <span className="brand-label">Stepwise Prism AI</span>
           <span className="brand-sub">admin</span>
         </div>
         {admin && (

@@ -80,7 +80,9 @@ button, input { max-width: 100%; }
   user-select: none;
 }
 
-.math-symbol {
+.math-symbol,
+.science-symbol,
+.cs-symbol{
   position: absolute;
   font-family: "Georgia", "Times New Roman", serif;
   font-style: italic;

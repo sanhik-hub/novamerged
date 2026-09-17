@@ -81,18 +81,22 @@ const quotes = [
 
 // Floating math symbols for decorative background
 const MATH_SYMBOLS = [
-  { char: "∑", size: 110, left: 5,  delay: 0,    duration: 18 },
-  { char: "∫", size: 130, left: 15, delay: 3,    duration: 22 },
-  { char: "π",  size: 95,  left: 28, delay: 6,    duration: 16 },
-  { char: "√",  size: 105, left: 42, delay: 1.5,  duration: 20 },
-  { char: "∞",  size: 90,  left: 58, delay: 9,    duration: 25 },
-  { char: "Δ",  size: 100, left: 72, delay: 4,    duration: 19 },
-  { char: "θ",  size: 85,  left: 85, delay: 7,    duration: 21 },
-  { char: "λ",  size: 115, left: 93, delay: 2,    duration: 17 },
-  { char: "∂",  size: 92,  left: 35, delay: 11,   duration: 23 },
-  { char: "≠",  size: 88,  left: 65, delay: 5,    duration: 15 },
-  { char: "∇",  size: 108, left: 50, delay: 13,   duration: 24 },
-  { char: "∈",  size: 82,  left: 78, delay: 8,    duration: 20 },
+  { char: "∑", size: 110, left: 5, delay: 0, duration: 18 },
+  { char: "∫", size: 130, left: 15, delay: 3, duration: 22 },
+  { char: "π", size: 95, left: 28, delay: 6, duration: 16 },
+  { char: "√", size: 105, left: 42, delay: 1.5, duration: 20 },
+
+  // Science
+  { char: "⚛", size: 100, left: 58, delay: 9, duration: 25 },
+  { char: "H₂O", size: 82, left: 72, delay: 4, duration: 19 },
+  { char: "DNA", size: 78, left: 85, delay: 7, duration: 21 },
+  { char: "CO₂", size: 82, left: 93, delay: 2, duration: 17 },
+
+  // Computer Science / AI
+  { char: "</>", size: 82, left: 35, delay: 11, duration: 23 },
+  { char: "0101", size: 72, left: 65, delay: 5, duration: 15 },
+  { char: "AI", size: 88, left: 50, delay: 13, duration: 24 },
+  { char: "{ }", size: 82, left: 78, delay: 8, duration: 20 },
 ];
 
 function MathBackground() {
@@ -588,7 +592,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
     try {
       setStage("loading");
       setLoadingMessage("Loading your history...");
-      
+
       const response = await getHistoryDetail(user.username, historyId);
       setCurrentHistoryDetail(response.data);
       setStage("history_view");
@@ -657,7 +661,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
     try {
       setLoadingMessage(
         mode === "graphical" ? "Reading your graph..." :
-        "Understanding your question..."
+          "Understanding your question..."
       );
       await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
       setLoadingMessage("Generating a personalized practice session...");
@@ -836,8 +840,8 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
       <motion.div className="ambient ambient-app-two" animate={{ x: [0, -28, 0], y: [0, 25, 0] }} transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }} />
       <MathBackground />
       {/* Voice Tutor ChatGPT-like overlay */}
-      <VoiceTutor 
-        isOpen={voiceModalOpen} 
+      <VoiceTutor
+        isOpen={voiceModalOpen}
         onClose={() => {
           setVoiceModalOpen(false);
           stopSession(); // Stops audio when closed
@@ -870,32 +874,32 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
           aria-label="Close sidebar"
         />
       )}
-<motion.aside className="sidebar" aria-hidden={!sidebarOpen} initial={false} animate={{ opacity: sidebarOpen ? 1 : 0.85 }} transition={{ type: "spring", stiffness: 240, damping: 26 }}>
-      
+      <motion.aside className="sidebar" aria-hidden={!sidebarOpen} initial={false} animate={{ opacity: sidebarOpen ? 1 : 0.85 }} transition={{ type: "spring", stiffness: 240, damping: 26 }}>
+
         <div className="brand">
           <span className="brand-icon">∑</span>
           <span className="brand-name"><span>Stepwise</span><span>Prism AI</span></span>
         </div>
-                <button
-  type="button"
-  className="workspace-button"
-  onClick={openWorkspace}
-  style={{
-    minHeight: "40px",
-    padding: "0 18px",
-    borderRadius: "10px",
-    border: "1px solid rgba(255, 255, 255, 0.16)",
-    background: "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04))",
-    color: "inherit",
-    fontWeight: 600,
-    letterSpacing: "0.01em",
-    boxShadow: "0 4px 14px rgba(0,0,0,0.16)",
-    cursor: "pointer",
-  }}
->
+        <button
+          type="button"
+          className="workspace-button"
+          onClick={openWorkspace}
+          style={{
+            minHeight: "40px",
+            padding: "0 18px",
+            borderRadius: "10px",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04))",
+            color: "inherit",
+            fontWeight: 600,
+            letterSpacing: "0.01em",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.16)",
+            cursor: "pointer",
+          }}
+        >
           Workspaces
         </button>
-<button className="new-chat" onClick={newChat}>+ New Chat</button>
+        <button className="new-chat" onClick={newChat}>+ New Chat</button>
 
         <div className="mode-switcher" aria-label="Question mode">
           <button
@@ -915,7 +919,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
             Graphical
           </button>
         </div>
-        
+
         {/* History Section */}
         {history.length > 0 && (
           <div className="history-section">
@@ -935,7 +939,7 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
             </div>
           </div>
         )}
-        
+
         <div className="sidebar-bottom">
           <div className="username" title={user.username}>{user.username}</div>
           <button className="logout" onClick={onLogout}>Log out</button>
@@ -944,206 +948,208 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
 
       <main className="main">
         <AnimatePresence mode="wait" initial={false}>
-        {stage === "home" && (
-          <motion.div key="home" className="home-content" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45, ease: "easeOut" }}>
-            <div className="welcome">
-              <h1>Hi, {user.username} 👋</h1>
-              <p>“{quote}”</p>
-            </div>
+          {stage === "home" && (
+            <motion.div key="home" className="home-content" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45, ease: "easeOut" }}>
+              <div className="welcome">
+                <h1>Hi, {user.username} 👋</h1>
+                <p>“{quote}”</p>
+              </div>
 
-            <div className="composer-wrapper">
-              {imagePreview && (
-                <div className="image-preview">
-                  <img src={imagePreview} alt="Selected question preview" />
-                  <button type="button" onClick={removeImage} aria-label="Remove image">×</button>
+              <div className="composer-wrapper">
+                {imagePreview && (
+                  <div className="image-preview">
+                    <img src={imagePreview} alt="Selected question preview" />
+                    <button type="button" onClick={removeImage} aria-label="Remove image">×</button>
+                  </div>
+                )}
+
+                {error && <div className="error composer-error" role="alert">{error}</div>}
+
+                {mode === "graphical" && (
+                  <GraphEditor coordinates={coordinates} onChange={setCoordinates} />
+                )}
+                <Composer
+                  value={questionText}
+                  onChange={setQuestionText}
+                  onSubmit={submitQuestion}
+                  onImage={selectImage}
+                  onOpenVoice={() => {
+                    setVoiceModalOpen(true);
+                    void startSession(); // Starts audio IMMEDIATELY on click!
+                  }}
+                  disabled={imageUploading}
+                  graphical={mode === "graphical"}
+                />
+                {image && (
+                  <p className="attachment-name">
+                    {imageUploading ? "Uploading image..." : image.name}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {stage === "loading" && (
+            <motion.div key="loading" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ type: "spring", stiffness: 120, damping: 18 }}><LoadingState message={loadingMessage} /></motion.div>
+          )}
+
+          {stage === "quiz" && questions[current] && (
+            <motion.div key={`quiz-${current}`} initial={{ opacity: 0, x: 55, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -55, scale: 0.98 }} transition={{ type: "spring", stiffness: 120, damping: 20 }}>
+              <Quiz
+                question={questions[current]}
+                current={current}
+                total={questions.length}
+                progress={progress}
+                selected={answers[current] ?? null}
+                showHint={showHint}
+                onSelect={chooseAnswer}
+                onHint={() => setShowHint(true)}
+                onNext={nextQuestion}
+                onPrevious={previousQuestion}
+              />
+            </motion.div>
+          )}
+
+          {stage === "result" && (
+            <motion.div key="result" className="result-page" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -25 }} transition={{ duration: 0.5 }}>
+              <div className="result-card">
+                <span className="eyebrow">Practice complete</span>
+                <h1>Quiz Complete!</h1>
+                <div className="score">{score} / {questions.length}</div>
+                <div className="progress-track" aria-label={`${questions.length ? Math.round((score / questions.length) * 100) : 0}% correct`}>
+                  <div style={{ width: `${questions.length ? (score / questions.length) * 100 : 0}%` }} />
+                </div>
+                <p>{questions.length ? Math.round((score / questions.length) * 100) : 0}% Correct</p>
+              </div>
+
+              {learnError && <div className="error review-error" role="alert">{learnError}</div>}
+
+              <QuestionReview
+                review={review}
+                loadingIndex={learnLoadingIndex}
+                onLearnAgain={learnAgain}
+                hideLearnAgain={mode === "graphical"}
+              />
+
+              {showLearnResult && learnQuestions.length > 0 && (
+                <LearnAgainResult
+                  score={learnScore}
+                  review={learnReview}
+                />
+              )}
+
+              <button className="primary result-next" onClick={startOriginal}>Try Original Question</button>
+            </motion.div>
+          )}
+
+          {stage === "learnAgain" && learnQuestions[learnCurrent] && (
+            <motion.div key={`learn-${learnCurrent}`} initial={{ opacity: 0, x: 55, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -55, scale: 0.98 }} transition={{ type: "spring", stiffness: 120, damping: 20 }}>
+              <Quiz
+                question={learnQuestions[learnCurrent]}
+                current={learnCurrent}
+                total={learnQuestions.length}
+                progress={learnProgress}
+                selected={learnAnswers[learnCurrent] ?? null}
+                showHint={showHint}
+                learnAgain
+                onSelect={chooseLearnAnswer}
+                onHint={() => setShowHint(true)}
+                onNext={nextLearnQuestion}
+                onPrevious={() => {
+                  if (learnCurrent > 0) {
+                    setLearnCurrent((value) => value - 1);
+                    setShowHint(false);
+                  } else {
+                    setStage("result");
+                  }
+                }}
+              />
+            </motion.div>
+          )}
+
+          {stage === "original" && originalQuestion && (
+            <motion.div key="original" initial={{ opacity: 0, scale: 0.96, y: 25 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 1.03 }} transition={{ type: "spring", stiffness: 110, damping: 18 }}>
+              <Quiz
+                question={originalQuestion}
+                current={0}
+                total={1}
+                progress={100}
+                selected={finalAnswer}
+                showHint={showHint}
+                finalQuestion
+                onSelect={setFinalAnswer}
+                onHint={() => setShowHint(true)}
+                onNext={submitOriginal}
+                onPrevious={() => setStage("result")}
+              />
+            </motion.div>
+          )}
+
+          {stage === "evaluation" && originalQuestion && finalAnswer != null && (
+            <motion.div key="evaluation" className="result-card final-result" initial={{ opacity: 0, scale: 0.82, y: 35 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ type: "spring", stiffness: 120, damping: 16 }}>
+              {finalAnswer === originalQuestion.correct_option ? (
+                <>
+                  <div className="result-icon correct-icon">✓</div>
+                  <h1>Correct! 🎉</h1>
+                  <p>
+                    Correct answer:{" "}
+                    <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
+                  </p>
+                  <p>You understood the concept.</p>
+                </>
+              ) : (
+                <>
+                  <div className="result-icon incorrect-icon">×</div>
+                  <h1>Not quite.</h1>
+                  <p>
+                    Correct answer:{" "}
+                    <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
+                  </p>
+                  <p>Review the concept and try again.</p>
+                </>
+              )}
+              {originalQuestion.solution && (
+                <div className="solution-block">
+                  <div className="solution-label">Solution</div>
+                  <p>{originalQuestion.solution}</p>
                 </div>
               )}
+              <button className="primary" onClick={newChat}>Start New Chat</button>
+            </motion.div>
+          )}
 
-              {error && <div className="error composer-error" role="alert">{error}</div>}
-
-              {mode === "graphical" && (
-                <GraphEditor coordinates={coordinates} onChange={setCoordinates} />
-              )}
-              <Composer
-                value={questionText}
-                onChange={setQuestionText}
-                onSubmit={submitQuestion}
-                onImage={selectImage}
-                onOpenVoice={() => {
-                  setVoiceModalOpen(true);
-                  void startSession(); // Starts audio IMMEDIATELY on click!
-                }}
-                disabled={imageUploading}
-                graphical={mode === "graphical"}
-              />
-              {image && (
-                <p className="attachment-name">
-                  {imageUploading ? "Uploading image..." : image.name}
-                </p>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {stage === "loading" && (
-          <motion.div key="loading" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ type: "spring", stiffness: 120, damping: 18 }}><LoadingState message={loadingMessage} /></motion.div>
-        )}
-
-        {stage === "quiz" && questions[current] && (
-          <motion.div key={`quiz-${current}`} initial={{ opacity: 0, x: 55, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -55, scale: 0.98 }} transition={{ type: "spring", stiffness: 120, damping: 20 }}>
-          <Quiz
-            question={questions[current]}
-            current={current}
-            total={questions.length}
-            progress={progress}
-            selected={answers[current] ?? null}
-            showHint={showHint}
-            onSelect={chooseAnswer}
-            onHint={() => setShowHint(true)}
-            onNext={nextQuestion}
-            onPrevious={previousQuestion}
-          />
-          </motion.div>
-        )}
-
-        {stage === "result" && (
-          <motion.div key="result" className="result-page" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -25 }} transition={{ duration: 0.5 }}>
-            <div className="result-card">
-              <span className="eyebrow">Practice complete</span>
-              <h1>Quiz Complete!</h1>
-              <div className="score">{score} / {questions.length}</div>
-              <div className="progress-track" aria-label={`${questions.length ? Math.round((score / questions.length) * 100) : 0}% correct`}>
-                <div style={{ width: `${questions.length ? (score / questions.length) * 100 : 0}%` }} />
-              </div>
-              <p>{questions.length ? Math.round((score / questions.length) * 100) : 0}% Correct</p>
-            </div>
-
-            {learnError && <div className="error review-error" role="alert">{learnError}</div>}
-
-            <QuestionReview
-              review={review}
-              loadingIndex={learnLoadingIndex}
-              onLearnAgain={learnAgain}
-              hideLearnAgain={mode === "graphical"}
-            />
-
-            {showLearnResult && learnQuestions.length > 0 && (
-              <LearnAgainResult
-                score={learnScore}
-                review={learnReview}
-              />
-            )}
-
-            <button className="primary result-next" onClick={startOriginal}>Try Original Question</button>
-          </motion.div>
-        )}
-
-        {stage === "learnAgain" && learnQuestions[learnCurrent] && (
-          <motion.div key={`learn-${learnCurrent}`} initial={{ opacity: 0, x: 55, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -55, scale: 0.98 }} transition={{ type: "spring", stiffness: 120, damping: 20 }}>
-          <Quiz
-            question={learnQuestions[learnCurrent]}
-            current={learnCurrent}
-            total={learnQuestions.length}
-            progress={learnProgress}
-            selected={learnAnswers[learnCurrent] ?? null}
-            showHint={showHint}
-            learnAgain
-            onSelect={chooseLearnAnswer}
-            onHint={() => setShowHint(true)}
-            onNext={nextLearnQuestion}
-            onPrevious={() => {
-              if (learnCurrent > 0) {
-                setLearnCurrent((value) => value - 1);
-                setShowHint(false);
-              } else {
-                setStage("result");
-              }
-            }}
-          />
-          </motion.div>
-        )}
-
-        {stage === "original" && originalQuestion && (
-          <motion.div key="original" initial={{ opacity: 0, scale: 0.96, y: 25 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 1.03 }} transition={{ type: "spring", stiffness: 110, damping: 18 }}>
-          <Quiz
-            question={originalQuestion}
-            current={0}
-            total={1}
-            progress={100}
-            selected={finalAnswer}
-            showHint={showHint}
-            finalQuestion
-            onSelect={setFinalAnswer}
-            onHint={() => setShowHint(true)}
-            onNext={submitOriginal}
-            onPrevious={() => setStage("result")}
-          />
-          </motion.div>
-        )}
-
-        {stage === "evaluation" && originalQuestion && finalAnswer != null && (
-          <motion.div key="evaluation" className="result-card final-result" initial={{ opacity: 0, scale: 0.82, y: 35 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ type: "spring", stiffness: 120, damping: 16 }}>
-            {finalAnswer === originalQuestion.correct_option ? (
-              <>
-                <div className="result-icon correct-icon">✓</div>
-                <h1>Correct! 🎉</h1>
-                <p>
-                  Correct answer:{" "}
-                  <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
-                </p>
-                <p>You understood the concept.</p>
-              </>
-            ) : (
-              <>
-                <div className="result-icon incorrect-icon">×</div>
-                <h1>Not quite.</h1>
-                <p>
-                  Correct answer:{" "}
-                  <strong><MathText>{originalQuestion.options[originalQuestion.correct_option - 1]}</MathText></strong>
-                </p>
-                <p>Review the concept and try again.</p>
-              </>
-            )}
-            {originalQuestion.solution && (
-              <div className="solution-block">
-                <div className="solution-label">Solution</div>
-                <p>{originalQuestion.solution}</p>
-              </div>
-            )}
-            <button className="primary" onClick={newChat}>Start New Chat</button>
-          </motion.div>
-        )}
-
-        {stage === "history_view" && currentHistoryDetail && (
-          <motion.div key="history" className="result-page history-result" initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45 }}>
-            <div className="result-card">
-              <span className="eyebrow">History Entry</span>
-              <h1>Quiz Result</h1>
-              <div className="score">{currentHistoryDetail.score}</div>
-              <div className="progress-track" aria-label="Score display">
-                <div style={{ width: `${(() => {
+          {stage === "history_view" && currentHistoryDetail && (
+            <motion.div key="history" className="result-page history-result" initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.45 }}>
+              <div className="result-card">
+                <span className="eyebrow">History Entry</span>
+                <h1>Quiz Result</h1>
+                <div className="score">{currentHistoryDetail.score}</div>
+                <div className="progress-track" aria-label="Score display">
+                  <div style={{
+                    width: `${(() => {
+                      const parts = currentHistoryDetail.score.split('/');
+                      return parts.length === 2 ? Math.round((parseInt(parts[0]) / parseInt(parts[1])) * 100) : 0;
+                    })()}%`
+                  }} />
+                </div>
+                <p>{(() => {
                   const parts = currentHistoryDetail.score.split('/');
                   return parts.length === 2 ? Math.round((parseInt(parts[0]) / parseInt(parts[1])) * 100) : 0;
-                })()}%` }} />
+                })()}% Correct</p>
               </div>
-              <p>{(() => {
-                const parts = currentHistoryDetail.score.split('/');
-                return parts.length === 2 ? Math.round((parseInt(parts[0]) / parseInt(parts[1])) * 100) : 0;
-              })()}% Correct</p>
-            </div>
 
-            <HistoryReview historyDetail={currentHistoryDetail} />
+              <HistoryReview historyDetail={currentHistoryDetail} />
 
-            <button className="primary result-next" onClick={newChat}>Back to Home</button>
-          </motion.div>
-        )}
-                {stage === "workspace" && (
-          <WorkspacePanel
-            user={user}
-            onBack={() => setStage("home")}
-          />
-        )}
-</AnimatePresence>
+              <button className="primary result-next" onClick={newChat}>Back to Home</button>
+            </motion.div>
+          )}
+          {stage === "workspace" && (
+            <WorkspacePanel
+              user={user}
+              onBack={() => setStage("home")}
+            />
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
@@ -1182,7 +1188,7 @@ function WorkspacePanel({
   const [workspaceImagePath, setWorkspaceImagePath] = useState("");
   const [workspaceImagePreview, setWorkspaceImagePreview] = useState<string | null>(null);
   const [workspaceImageUploading, setWorkspaceImageUploading] = useState(false);
-  const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);  const [visibility, setVisibility] = useState("public");
+  const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null); const [visibility, setVisibility] = useState("public");
   const [followUp, setFollowUp] = useState("");
 
   const [guidedAttempt, setGuidedAttempt] = useState<{
@@ -1577,7 +1583,7 @@ function WorkspacePanel({
       if (generated?.is_relevant === false) {
         throw new Error(
           generated?.error_message ||
-            "This question could not be processed.",
+          "This question could not be processed.",
         );
       }
 
@@ -1665,7 +1671,7 @@ function WorkspacePanel({
       if (payload?.is_relevant === false) {
         throw new Error(
           payload?.error_message ||
-            "This question could not be processed.",
+          "This question could not be processed.",
         );
       }
 
@@ -1713,7 +1719,7 @@ function WorkspacePanel({
     const correct = guidedAttempt.questions.reduce(
       (count: number, question: any, index: number) =>
         guidedAttempt.answers[index] ===
-        Number(question.correct_option)
+          Number(question.correct_option)
           ? count + 1
           : count,
       0,
@@ -2056,57 +2062,57 @@ function WorkspacePanel({
       </div>
 
       <AnimatePresence>
-  {error && (
-    <motion.div
-      className="workspace-error-popup"
-      role="alert"
-      initial={{ opacity: 0, y: -18, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -18, scale: 0.97 }}
-      transition={{ duration: 0.2 }}
-      style={{
-        position: "fixed",
-        top: "20px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 10000,
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-        width: "min(560px, calc(100vw - 32px))",
-        padding: "14px 16px",
-        borderRadius: "10px",
-        border: "1px solid rgba(255, 90, 90, 0.55)",
-        background: "rgba(105, 20, 25, 0.97)",
-        color: "#fff",
-        boxShadow: "0 14px 38px rgba(0, 0, 0, 0.38)",
-        backdropFilter: "blur(12px)",
-        fontSize: "14px",
-        lineHeight: 1.45,
-      }}
-    >
-      <span style={{ flex: 1 }}>{error}</span>
+        {error && (
+          <motion.div
+            className="workspace-error-popup"
+            role="alert"
+            initial={{ opacity: 0, y: -18, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -18, scale: 0.97 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: "fixed",
+              top: "20px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10000,
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              width: "min(560px, calc(100vw - 32px))",
+              padding: "14px 16px",
+              borderRadius: "10px",
+              border: "1px solid rgba(255, 90, 90, 0.55)",
+              background: "rgba(105, 20, 25, 0.97)",
+              color: "#fff",
+              boxShadow: "0 14px 38px rgba(0, 0, 0, 0.38)",
+              backdropFilter: "blur(12px)",
+              fontSize: "14px",
+              lineHeight: 1.45,
+            }}
+          >
+            <span style={{ flex: 1 }}>{error}</span>
 
-      <button
-        type="button"
-        aria-label="Dismiss error"
-        onClick={() => setError("")}
-        style={{
-          border: 0,
-          background: "transparent",
-          color: "#fff",
-          fontSize: "22px",
-          lineHeight: 1,
-          cursor: "pointer",
-          padding: "2px 5px",
-          opacity: 0.9,
-        }}
-      >
-        ×
-      </button>
-    </motion.div>
-  )}
-</AnimatePresence>
+            <button
+              type="button"
+              aria-label="Dismiss error"
+              onClick={() => setError("")}
+              style={{
+                border: 0,
+                background: "transparent",
+                color: "#fff",
+                fontSize: "22px",
+                lineHeight: 1,
+                cursor: "pointer",
+                padding: "2px 5px",
+                opacity: 0.9,
+              }}
+            >
+              ×
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {message && <div className="workspace-message">{message}</div>}
 
       <div className="workspace-grid">
@@ -2174,9 +2180,8 @@ function WorkspacePanel({
                 <button
                   type="button"
                   key={workspace.id}
-                  className={`workspace-list-item ${
-                    selectedWorkspace?.id === workspace.id ? "active" : ""
-                  }`}
+                  className={`workspace-list-item ${selectedWorkspace?.id === workspace.id ? "active" : ""
+                    }`}
                   onClick={() => void loadWorkspace(Number(workspace.id))}
                 >
                   <strong>{workspace.name}</strong>
@@ -2217,8 +2222,8 @@ function WorkspacePanel({
                       Invited by{" "}
                       {String(
                         invitation.invited_username ??
-                          invitation.invited_by ??
-                          "workspace member",
+                        invitation.invited_by ??
+                        "workspace member",
                       )}
                     </span>
                   </div>
@@ -2415,24 +2420,24 @@ function WorkspacePanel({
                       </select>
 
                       <label
-          className="secondary"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: workspaceImageUploading ? "wait" : "pointer",
-          }}
-        >
-          {workspaceImageUploading ? "Uploading..." : "Attach Image"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-            onChange={(event) => void selectWorkspaceImage(event)}
-            disabled={busy || workspaceImageUploading}
-            style={{ display: "none" }}
-          />
-        </label>
-        <button
+                        className="secondary"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: workspaceImageUploading ? "wait" : "pointer",
+                        }}
+                      >
+                        {workspaceImageUploading ? "Uploading..." : "Attach Image"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                          onChange={(event) => void selectWorkspaceImage(event)}
+                          disabled={busy || workspaceImageUploading}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                      <button
                         type="button"
                         className="primary"
                         onClick={() => void createQuestion()}
@@ -2444,44 +2449,44 @@ function WorkspacePanel({
                   </div>
 
                   {workspaceImagePreview && (
-      <div
-        className="workspace-image-preview-marker"
-        style={{
-          marginTop: "12px",
-          position: "relative",
-          width: "fit-content",
-        }}
-      >
-        <img
-          src={workspaceImagePreview}
-          alt="Attached question"
-          style={{
-            display: "block",
-            maxWidth: "320px",
-            maxHeight: "220px",
-            borderRadius: "10px",
-            border: "1px solid rgba(255,255,255,0.14)",
-            objectFit: "contain",
-          }}
-        />
-        <button
-          type="button"
-          className="secondary"
-          onClick={removeWorkspaceImage}
-          disabled={busy || workspaceImageUploading}
-          style={{
-            position: "absolute",
-            top: "8px",
-            right: "8px",
-            padding: "4px 8px",
-            minWidth: "auto",
-          }}
-        >
-          Remove
-        </button>
-      </div>
-    )}
-    <div className="workspace-question-columns">
+                    <div
+                      className="workspace-image-preview-marker"
+                      style={{
+                        marginTop: "12px",
+                        position: "relative",
+                        width: "fit-content",
+                      }}
+                    >
+                      <img
+                        src={workspaceImagePreview}
+                        alt="Attached question"
+                        style={{
+                          display: "block",
+                          maxWidth: "320px",
+                          maxHeight: "220px",
+                          borderRadius: "10px",
+                          border: "1px solid rgba(255,255,255,0.14)",
+                          objectFit: "contain",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={removeWorkspaceImage}
+                        disabled={busy || workspaceImageUploading}
+                        style={{
+                          position: "absolute",
+                          top: "8px",
+                          right: "8px",
+                          padding: "4px 8px",
+                          minWidth: "auto",
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  <div className="workspace-question-columns">
                     <div className="workspace-question-list">
                       <div className="workspace-card-header">
                         <div>
@@ -2505,9 +2510,8 @@ function WorkspacePanel({
                         questions.map((question, questionIndex) => (
                           <button
                             type="button"
-                            className={`workspace-question-item ${
-                              selectedQuestion?.id === question.id ? "active" : ""
-                            }`}
+                            className={`workspace-question-item ${selectedQuestion?.id === question.id ? "active" : ""
+                              }`}
                             key={question.id}
                             onClick={() => void openQuestion(Number(question.id))}
                           >
@@ -2518,8 +2522,8 @@ function WorkspacePanel({
                               {question.question}
                             </div>
                             <span>
-                          {question.visibility ?? "public"}
-                        </span>
+                              {question.visibility ?? "public"}
+                            </span>
                           </button>
                         ))
                       )}
@@ -2700,9 +2704,9 @@ function WorkspacePanel({
                       members.map((member) => {
                         const memberActionKey = String(
                           member.user_id ??
-                            member.id ??
-                            member.username ??
-                            "member",
+                          member.id ??
+                          member.username ??
+                          "member",
                         );
                         const isMemberOwner = member.role === "owner";
                         const isMemberAdmin = member.role === "admin";
@@ -2937,10 +2941,10 @@ function WorkspacePanel({
                 const averagePercent =
                   scoredAttempts.length > 0
                     ? scoredAttempts.reduce(
-                        (sum, attempt) =>
-                          sum + Number(attempt.score_percent),
-                        0,
-                      ) / scoredAttempts.length
+                      (sum, attempt) =>
+                        sum + Number(attempt.score_percent),
+                      0,
+                    ) / scoredAttempts.length
                     : null;
 
                 return (
@@ -3033,8 +3037,8 @@ function WorkspacePanel({
                             <div className="workspace-performance-date">
                               {attempt.started_at
                                 ? new Date(
-                                    attempt.started_at,
-                                  ).toLocaleString()
+                                  attempt.started_at,
+                                ).toLocaleString()
                                 : "Unknown"}
                             </div>
                           </div>
@@ -3120,11 +3124,10 @@ function WorkspacePanel({
                   <div
                     className="workspace-attempt-progress-fill"
                     style={{
-                      width: `${
-                        ((guidedAttempt.currentIndex + 1) /
+                      width: `${((guidedAttempt.currentIndex + 1) /
                           guidedAttempt.questions.length) *
                         100
-                      }%`,
+                        }%`,
                     }}
                   />
                 </div>
@@ -3159,8 +3162,8 @@ function WorkspacePanel({
                         <h3>
                           {String(
                             question.question ??
-                              question.text ??
-                              "",
+                            question.text ??
+                            "",
                           )}
                         </h3>
 
@@ -3173,22 +3176,21 @@ function WorkspacePanel({
                                 <button
                                   key={optionIndex}
                                   type="button"
-                                  className={`workspace-attempt-option${
-                                    selectedAnswer === optionNumber
+                                  className={`workspace-attempt-option${selectedAnswer === optionNumber
                                       ? " selected"
                                       : ""
-                                  }`}
+                                    }`}
                                   onClick={() =>
                                     setGuidedAttempt((current) =>
                                       current
                                         ? {
-                                            ...current,
-                                            answers: {
-                                              ...current.answers,
-                                              [current.currentIndex]:
-                                                optionNumber,
-                                            },
-                                          }
+                                          ...current,
+                                          answers: {
+                                            ...current.answers,
+                                            [current.currentIndex]:
+                                              optionNumber,
+                                          },
+                                        }
                                         : current,
                                     )
                                   }
@@ -3212,13 +3214,13 @@ function WorkspacePanel({
                               setGuidedAttempt((current) =>
                                 current
                                   ? {
-                                      ...current,
-                                      hints: {
-                                        ...current.hints,
-                                        [current.currentIndex]:
-                                          !showHint,
-                                      },
-                                    }
+                                    ...current,
+                                    hints: {
+                                      ...current.hints,
+                                      [current.currentIndex]:
+                                        !showHint,
+                                    },
+                                  }
                                   : current,
                               )
                             }
@@ -3230,7 +3232,7 @@ function WorkspacePanel({
                             <div className="workspace-attempt-hint">
                               {String(
                                 question.hint ??
-                                  "No hint is available for this question.",
+                                "No hint is available for this question.",
                               )}
                             </div>
                           )}
@@ -3254,12 +3256,12 @@ function WorkspacePanel({
                             setGuidedAttempt((current) =>
                               current
                                 ? {
-                                    ...current,
-                                    currentIndex: Math.max(
-                                      0,
-                                      current.currentIndex - 1,
-                                    ),
-                                  }
+                                  ...current,
+                                  currentIndex: Math.max(
+                                    0,
+                                    current.currentIndex - 1,
+                                  ),
+                                }
                                 : current,
                             )
                           }
@@ -3269,7 +3271,7 @@ function WorkspacePanel({
                         </button>
 
                         {guidedAttempt.currentIndex <
-                        guidedAttempt.questions.length - 1 ? (
+                          guidedAttempt.questions.length - 1 ? (
                           <button
                             type="button"
                             className="primary"
@@ -3277,10 +3279,10 @@ function WorkspacePanel({
                               setGuidedAttempt((current) =>
                                 current
                                   ? {
-                                      ...current,
-                                      currentIndex:
-                                        current.currentIndex + 1,
-                                    }
+                                    ...current,
+                                    currentIndex:
+                                      current.currentIndex + 1,
+                                  }
                                   : current,
                               )
                             }
@@ -3324,10 +3326,10 @@ function WorkspacePanel({
                     <strong>
                       {guidedAttempt.questions.length > 0
                         ? Math.round(
-                            (guidedAttempt.correct /
-                              guidedAttempt.questions.length) *
-                              100,
-                          )
+                          (guidedAttempt.correct /
+                            guidedAttempt.questions.length) *
+                          100,
+                        )
                         : 0}
                       %
                     </strong>
@@ -3342,118 +3344,117 @@ function WorkspacePanel({
                   </div>
 
                   <div className="workspace-guided-solution-content">
-  {(() => {
-    const rawSolution = guidedAttempt.solution as any;
+                    {(() => {
+                      const rawSolution = guidedAttempt.solution as any;
 
-    let solutionData: any = rawSolution;
+                      let solutionData: any = rawSolution;
 
-    if (typeof solutionData === "string") {
-      try {
-        solutionData = JSON.parse(solutionData);
-      } catch {
-        solutionData = {
-          solution: solutionData,
-        };
-      }
-    }
+                      if (typeof solutionData === "string") {
+                        try {
+                          solutionData = JSON.parse(solutionData);
+                        } catch {
+                          solutionData = {
+                            solution: solutionData,
+                          };
+                        }
+                      }
 
-    const resultData =
-      solutionData?.result_json ??
-      solutionData?.result ??
-      solutionData;
+                      const resultData =
+                        solutionData?.result_json ??
+                        solutionData?.result ??
+                        solutionData;
 
-    let readableData: any = resultData;
+                      let readableData: any = resultData;
 
-    if (typeof readableData === "string") {
-      try {
-        readableData = JSON.parse(readableData);
-      } catch {
-        readableData = {
-          solution: readableData,
-        };
-      }
-    }
+                      if (typeof readableData === "string") {
+                        try {
+                          readableData = JSON.parse(readableData);
+                        } catch {
+                          readableData = {
+                            solution: readableData,
+                          };
+                        }
+                      }
 
-    const originalQuestion =
-      readableData?.user_question;
+                      const originalQuestion =
+                        readableData?.user_question;
 
-    const solutionText =
-      originalQuestion?.solution ??
-      readableData?.solution ??
-      readableData?.explanation ??
-      readableData?.final_solution;
+                      const solutionText =
+                        originalQuestion?.solution ??
+                        readableData?.solution ??
+                        readableData?.explanation ??
+                        readableData?.final_solution;
 
-    return (
-      <>
-        {originalQuestion?.question && (
-          <h3>{String(originalQuestion.question)}</h3>
-        )}
+                      return (
+                        <>
+                          {originalQuestion?.question && (
+                            <h3>{String(originalQuestion.question)}</h3>
+                          )}
 
-        {typeof solutionText === "string" ? (
-          <p className="workspace-guided-solution-text">
-            {solutionText}
-          </p>
-        ) : (
-          <pre>
-            {JSON.stringify(readableData, null, 2)}
-          </pre>
-        )}
+                          {typeof solutionText === "string" ? (
+                            <p className="workspace-guided-solution-text">
+                              {solutionText}
+                            </p>
+                          ) : (
+                            <pre>
+                              {JSON.stringify(readableData, null, 2)}
+                            </pre>
+                          )}
 
-        <div className="workspace-guided-review">
-          <h3>Answer review</h3>
+                          <div className="workspace-guided-review">
+                            <h3>Answer review</h3>
 
-          {guidedAttempt.questions.map(
-            (question: any, index: number) => {
-              const selected =
-                guidedAttempt.answers[index];
+                            {guidedAttempt.questions.map(
+                              (question: any, index: number) => {
+                                const selected =
+                                  guidedAttempt.answers[index];
 
-              const correct =
-                Number(question.correct_option);
+                                const correct =
+                                  Number(question.correct_option);
 
-              const isCorrect = selected === correct;
+                                const isCorrect = selected === correct;
 
-              return (
-                <div
-                  className={`workspace-guided-review-item ${
-                    isCorrect ? "correct" : "incorrect"
-                  }`}
-                  key={index}
-                >
-                  <strong>
-                    {index + 1}.{" "}
-                    {String(
-                      question.question ??
-                        question.text ??
-                        "",
-                    )}
-                  </strong>
+                                return (
+                                  <div
+                                    className={`workspace-guided-review-item ${isCorrect ? "correct" : "incorrect"
+                                      }`}
+                                    key={index}
+                                  >
+                                    <strong>
+                                      {index + 1}.{" "}
+                                      {String(
+                                        question.question ??
+                                        question.text ??
+                                        "",
+                                      )}
+                                    </strong>
 
-                  <span>
-                    Your answer:{" "}
-                    {selected == null
-                      ? "Not answered"
-                      : String(
-                          question.options?.[selected - 1] ??
-                            selected,
-                        )}
-                  </span>
+                                    <span>
+                                      Your answer:{" "}
+                                      {selected == null
+                                        ? "Not answered"
+                                        : String(
+                                          question.options?.[selected - 1] ??
+                                          selected,
+                                        )}
+                                    </span>
 
-                  <span>
-                    Correct answer:{" "}
-                    {String(
-                      question.options?.[correct - 1] ??
-                        correct,
-                    )}
-                  </span>
-                </div>
-              );
-            },
-          )}
-        </div>
-      </>
-    );
-  })()}
-</div>
+                                    <span>
+                                      Correct answer:{" "}
+                                      {String(
+                                        question.options?.[correct - 1] ??
+                                        correct,
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              },
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div className="workspace-attempt-actions">
@@ -3490,7 +3491,7 @@ function WorkspaceSettingsPanel({
   onSaved: (settings: WorkspaceSettings) => void;
   onError: (message: string) => void;
 }) {
-const [allowPosting, setAllowPosting] = useState(
+  const [allowPosting, setAllowPosting] = useState(
     settings?.allow_member_posting ?? true,
   );
   const [allowSolving, setAllowSolving] = useState(
@@ -3498,7 +3499,7 @@ const [allowPosting, setAllowPosting] = useState(
   );
 
   useEffect(() => {
-setAllowPosting(settings?.allow_member_posting ?? true);
+    setAllowPosting(settings?.allow_member_posting ?? true);
     setAllowSolving(settings?.allow_member_solving ?? true);
   }, [settings]);
 
@@ -3604,12 +3605,12 @@ function Composer({
 
   return (
     <div className="composer-outer-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
-      
+
       {/* The main text input box */}
-      <motion.div 
-        className="composer" 
-        style={{ flex: 1 }} 
-        whileHover={{ y: -2 }} 
+      <motion.div
+        className="composer"
+        style={{ flex: 1 }}
+        whileHover={{ y: -2 }}
         transition={{ type: "spring", stiffness: 250, damping: 20 }}
       >
         <input
@@ -3625,7 +3626,7 @@ function Composer({
           aria-label={placeholder}
           disabled={disabled}
         />
-        
+
         {!graphical && (
           <label className="icon-button" aria-label="Upload image">
             📎
@@ -3638,7 +3639,7 @@ function Composer({
             />
           </label>
         )}
-        
+
         <motion.button
           className="send"
           whileHover={{ scale: 1.08, rotate: -5 }}
@@ -3670,7 +3671,7 @@ function Composer({
           </svg>
         </motion.button>
       )}
-      
+
     </div>
   );
 }
@@ -3839,7 +3840,7 @@ function Quiz({
       </motion.div>
 
       <motion.section className="quiz-card" layout transition={{ type: "spring", stiffness: 170, damping: 24 }}>
-      {question.coordinates && question.coordinates.length > 0 && <GraphCanvas coordinates={question.coordinates} />}
+        {question.coordinates && question.coordinates.length > 0 && <GraphCanvas coordinates={question.coordinates} />}
         <h1><MathText>{question.question}</MathText></h1>
         <motion.div className="options" role="radiogroup" aria-label="Answer options" variants={{ show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show">
           {question.options.map((option, index) => {
@@ -4046,9 +4047,9 @@ function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
 
   const wrongQuestions = historyDetail.wrong_answered_question
     ? historyDetail.wrong_answered_question
-        .split(", ")
-        .map((q) => q.trim())
-        .filter((q) => q.length > 0)
+      .split(", ")
+      .map((q) => q.trim())
+      .filter((q) => q.length > 0)
     : [];
 
   // Parse score to get total questions
