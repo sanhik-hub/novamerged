@@ -55,6 +55,8 @@ import type {
 } from "./types";
 import MathText from "./components/MathText";
 import "./App.css";
+import VoiceTutor from "./components/VoiceTutor";
+import { useVoiceTutor } from "./hooks/useVoiceTutor";
 
 type Page = "landing" | "login" | "signup" | "app";
 type Stage = "home" | "loading" | "quiz" | "result" | "learnAgain" | "original" | "evaluation" | "history_view" | "workspace";
@@ -513,6 +515,8 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [showLearnResult, setShowLearnResult] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentHistoryDetail, setCurrentHistoryDetail] = useState<HistoryDetail | null>(null);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const { status, isRecording, userBars, aiLevel, isMuted, startSession, stopSession, toggleMute } = useVoiceTutor();
 
   useEffect(() => {
     return () => {
@@ -831,6 +835,21 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
       <motion.div className="ambient ambient-app-one" animate={{ x: [0, 35, 0], y: [0, -20, 0] }} transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }} />
       <motion.div className="ambient ambient-app-two" animate={{ x: [0, -28, 0], y: [0, 25, 0] }} transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }} />
       <MathBackground />
+      {/* Voice Tutor ChatGPT-like overlay */}
+      <VoiceTutor 
+        isOpen={voiceModalOpen} 
+        onClose={() => {
+          setVoiceModalOpen(false);
+          stopSession(); // Stops audio when closed
+        }}
+        status={status}
+        isRecording={isRecording}
+        userBars={userBars}
+        aiLevel={aiLevel}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+        onReconnect={startSession}
+      />
       <button
         type="button"
         className={`sidebar-toggle ${sidebarOpen ? "is-open" : ""}`}
@@ -950,6 +969,10 @@ function NovaAI({ user, onLogout }: { user: User; onLogout: () => void }) {
                 onChange={setQuestionText}
                 onSubmit={submitQuestion}
                 onImage={selectImage}
+                onOpenVoice={() => {
+                  setVoiceModalOpen(true);
+                  void startSession(); // Starts audio IMMEDIATELY on click!
+                }}
                 disabled={imageUploading}
                 graphical={mode === "graphical"}
               />
@@ -3565,6 +3588,7 @@ function Composer({
   onChange,
   onSubmit,
   onImage,
+  onOpenVoice,
   disabled,
   graphical,
 }: {
@@ -3572,38 +3596,82 @@ function Composer({
   onChange: (value: string) => void;
   onSubmit: () => void;
   onImage: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onOpenVoice: () => void;
   disabled: boolean;
   graphical: boolean;
 }) {
   const placeholder = "Ask your question...";
 
   return (
-    <motion.div className="composer" whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 250, damping: 20 }}>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        disabled={disabled}
-      />
-      {!graphical && <label className="icon-button" aria-label="Upload image">
-        📎
+    <div className="composer-outer-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
+      
+      {/* The main text input box */}
+      <motion.div 
+        className="composer" 
+        style={{ flex: 1 }} 
+        whileHover={{ y: -2 }} 
+        transition={{ type: "spring", stiffness: 250, damping: 20 }}
+      >
         <input
-          type="file"
-          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-          hidden
-          onChange={onImage}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              onSubmit();
+            }
+          }}
+          placeholder={placeholder}
+          aria-label={placeholder}
           disabled={disabled}
         />
-      </label>}
-      <motion.button className="send" whileHover={{ scale: 1.08, rotate: -5 }} whileTap={{ scale: 0.9 }} onClick={onSubmit} disabled={disabled} aria-label="Send">➤</motion.button>
-    </motion.div>
+        
+        {!graphical && (
+          <label className="icon-button" aria-label="Upload image">
+            📎
+            <input
+              type="file"
+              accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+              hidden
+              onChange={onImage}
+              disabled={disabled}
+            />
+          </label>
+        )}
+        
+        <motion.button
+          className="send"
+          whileHover={{ scale: 1.08, rotate: -5 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={onSubmit}
+          disabled={disabled}
+          aria-label="Send"
+        >
+          ➤
+        </motion.button>
+      </motion.div>
+
+      {/* Voice Tutor Button - Outside on the right and hidden in graphical mode */}
+      {!graphical && (
+        <motion.button
+          type="button"
+          className="voice-btn-outside"
+          whileHover={{ scale: 1.08, y: -2 }}
+          whileTap={{ scale: 0.92 }}
+          onClick={onOpenVoice}
+          disabled={disabled}
+          aria-label="Open Voice Tutor"
+          title="Live Voice Tutor"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
+        </motion.button>
+      )}
+      
+    </div>
   );
 }
 
