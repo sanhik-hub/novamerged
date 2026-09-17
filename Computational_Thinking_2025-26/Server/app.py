@@ -32,15 +32,7 @@ def load_server_environment():
 
 load_server_environment()
 
-secret_key = os.getenv("SECRET_KEY")
-
-if not secret_key:
-    raise RuntimeError(
-        "SECRET_KEY is not configured in the environment."
-    )
-
 app = Flask(__name__)
-app.config["SECRET_KEY"] = secret_key
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
