@@ -532,7 +532,7 @@ button, input { max-width: 100%; }
   position: relative;
 }
 .spinner::after {
-  content: "âˆ‘";
+  content: "\03A3";
   position: absolute;
   font-size: 18px;
   color: var(--accent-hi);
