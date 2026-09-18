@@ -37,15 +37,15 @@ class ExecutionService:
     Pipeline:
 
         text
-          ↓
+          â†“
         LanguageParser
-          ↓
+          â†“
         ContextResolver
-          ↓
+          â†“
         NLURouter
-          ↓
+          â†“
         provider / reasoning layer
-          ↓
+          â†“
         ConversationContext
     """
 
@@ -268,6 +268,66 @@ class ExecutionService:
                 error="No mathematical expression was found.",
             )
 
+        # Gemini uses its general text-generation path for the current
+        # online computation mode. Other providers keep their existing
+        # calculation path for future/local computation support.
+        if decision.provider == "gemini":
+            prompt = self._build_reasoning_prompt(
+                parsed=parsed,
+                context=context,
+            )
+
+            prompt = (
+                f"{prompt}\n\n"
+                f"Task: Perform the requested mathematical operation "
+                f"({operation}) and give the resulting answer directly. "
+                f"Show concise mathematical reasoning when useful. "
+                f"Do not generate MCQs, study questions, or JSON."
+            )
+
+            try:
+                result = self.provider_router.generate(
+                    prompt=prompt,
+                    max_tokens=260,
+                    temperature=0.0,
+                    system_prompt=(
+                        "You are a mathematical computation assistant. "
+                        "Solve the requested mathematical problem accurately. "
+                        "Return the actual answer, not a study-question "
+                        "object or JSON. Use the supplied problem context "
+                        "when the request refers to a previous solution."
+                    ),
+                    enable_thinking=False,
+                    provider="gemini",
+                )
+            except Exception as exc:
+                return ExecutionResult(
+                    success=False,
+                    operation=operation,
+                    error=str(exc),
+                    provider="gemini",
+                )
+
+            if not result.get("success"):
+                return ExecutionResult(
+                    success=False,
+                    operation=operation,
+                    error=result.get("error") or "Computation failed.",
+                    provider=result.get("engine") or "gemini",
+                )
+
+            answer = result.get("result")
+
+            context.current_result = answer
+
+            return ExecutionResult(
+                success=True,
+                operation=operation,
+                answer=answer,
+                provider=result.get("engine") or "gemini",
+                used_llm=True,
+            )
+
         try:
             result = self.provider_router.calculate(
                 query=expression,
@@ -300,8 +360,6 @@ class ExecutionService:
             provider=result.get("engine") or decision.provider,
             used_llm=False,
         )
-
-    # ---------------------------------------------------------
     # PLOT
     # ---------------------------------------------------------
 
@@ -635,7 +693,16 @@ class ExecutionService:
                 system_prompt=(
                     "You are a conversational mathematical assistant. "
                     "Use the previous problem and results when relevant. "
-                    "Do not invent unavailable information."
+                    "Do not invent unavailable information. "
+                    "Format the response using Markdown and standard LaTeX. "
+                    "Use `$...` for inline mathematics and `$$...$$` for "
+                    "display mathematics. Use proper LaTeX commands such "
+                    "as `\\frac{}`, `\\sqrt{}`, `\\sin`, `\\cos`, `\\tan`, and "
+                    "`^{-1}` instead of Unicode-composed mathematical "
+                    "notation. For derivatives, use forms such as "
+                    "`\\frac{d}{dx}` and `\\frac{du}{dx}`. "
+                    "Do not write mathematical expressions as code unless "
+                    "the user explicitly asks for code."
                 ),
                 enable_thinking=False,
             )
@@ -738,6 +805,18 @@ class ExecutionService:
             )
 
         parts.append(
+            "Mathematical formatting requirements:\n"
+            "- Use Markdown for the explanation.\n"
+            "- Write all mathematical expressions using valid LaTeX.\n"
+            "- Use $...$ for inline mathematics and $$...$$ for display equations.\n"
+            "- Use \\frac{numerator}{denominator} for fractions.\n"
+            "- Use \\sqrt{...} for square roots.\n"
+            "- Use \\frac{d}{dx}, \\frac{du}{dx}, etc. for derivatives.\n"
+            "- Use \\sin, \\cos, \\tan and ^{-1} for inverse trigonometric functions.\n"
+            "- Never replace LaTeX with Unicode mathematical notation.\n"
+            "- Never write compressed forms such as ddx, dudx, or 11-u2.\n"
+            "- Do not omit square-root, fraction, exponent, or operator structure.\n"
+            "- Preserve the exact mathematical meaning of the requested expression.\n"
             "Respond to the current request directly."
         )
 

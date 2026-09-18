@@ -15,6 +15,9 @@ from database.models import (
     WorkspaceQuestionFollowUp,
 )
 
+from services.execution_service import ExecutionService
+from services.language import ConversationContext
+
 
 def _get_workspace_member(username, workspace_id):
     user = User.query.filter_by(username=username).first()
@@ -390,12 +393,62 @@ def create_workspace_question_followup(
     if len(followup_question) > 10000:
         return None, "Follow-up question is too long"
 
+    solution = WorkspaceQuestionSolution.query.filter_by(
+        workspace_question_id=question.id,
+    ).first()
+
+    solution_result = None
+    solution_steps = []
+
+    if solution and solution.result_json:
+        try:
+            parsed_solution = (
+                solution.result_json
+                if isinstance(solution.result_json, dict)
+                else json.loads(solution.result_json)
+            )
+
+            if isinstance(parsed_solution, dict):
+                solution_result = parsed_solution
+
+                steps = parsed_solution.get("steps")
+                if isinstance(steps, list):
+                    solution_steps = steps
+
+                user_question = parsed_solution.get("user_question")
+                if isinstance(user_question, dict):
+                    if "solution" in user_question and solution_result is not None:
+                        solution_result = parsed_solution
+
+        except (TypeError, ValueError, json.JSONDecodeError):
+            solution_result = solution.result_json
+
+    context = ConversationContext(
+        problem_text=question.question,
+        current_result=solution_result,
+        steps=solution_steps,
+    )
+
+    try:
+        execution = ExecutionService().execute(
+            followup_question,
+            context=context,
+        )
+    except Exception as exc:
+        return None, f"Failed to process follow-up: {exc}"
+
+    if not execution.success:
+        return None, execution.error or "Failed to process follow-up"
+
+    generated_answer = execution.answer
+    generated_engine = execution.provider or engine or "local_llm"
+
     followup = WorkspaceQuestionFollowUp(
         workspace_question_id=question.id,
         user_id=user.id,
         question=followup_question,
-        answer=answer,
-        engine=engine,
+        answer=generated_answer,
+        engine=generated_engine,
     )
 
     try:
@@ -418,6 +471,7 @@ def create_workspace_question_followup(
             else None
         ),
     }, None
+
 
 
 def get_workspace_question_attempts(

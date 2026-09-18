@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    STEPWISE PRISM AI â€” Mathematical Theme
    Palette: deep navy bg Â· slate panels Â· indigo/violet accents
    All text on dark surfaces is light; all text on light is dark.
@@ -1873,6 +1873,73 @@ input:focus, textarea:focus, select:focus {
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Workspace rich Markdown + math */
+.workspace-rich-text {
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.workspace-rich-text > :first-child {
+  margin-top: 0;
+}
+
+.workspace-rich-text > :last-child {
+  margin-bottom: 0;
+}
+
+.workspace-rich-text p {
+  margin: 0 0 14px;
+  line-height: 1.75;
+}
+
+.workspace-rich-text h1,
+.workspace-rich-text h2,
+.workspace-rich-text h3,
+.workspace-rich-text h4,
+.workspace-rich-text h5,
+.workspace-rich-text h6 {
+  margin: 20px 0 10px;
+  line-height: 1.45;
+}
+
+.workspace-rich-text ul,
+.workspace-rich-text ol {
+  margin: 10px 0 16px;
+  padding-left: 28px;
+}
+
+.workspace-rich-text li {
+  margin: 6px 0;
+  line-height: 1.7;
+}
+
+.workspace-rich-text blockquote {
+  margin: 14px 0;
+  padding-left: 16px;
+  border-left: 3px solid var(--border);
+}
+
+.workspace-rich-text .katex-display {
+  margin: 20px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 0;
+}
+
+.workspace-rich-text .katex {
+  line-height: 1.35;
+}
+
+.workspace-rich-text code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--background);
+}
+
+.workspace-rich-text pre {
+  margin: 14px 0;
+  overflow-x: auto;
+}
 
 .workspace-attempts {
   display: flex;
@@ -3434,4 +3501,3 @@ input:focus, textarea:focus, select:focus {
 .voice-mute-btn.muted:hover {
   background: rgba(245, 158, 11, 0.25);
 }
-

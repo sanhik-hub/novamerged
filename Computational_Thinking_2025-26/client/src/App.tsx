@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   login,
@@ -52,8 +52,10 @@ import type {
   WorkspaceSolution,
   WorkspaceAttempt,
   WorkspaceInvitation,
+  WorkspaceFollowUp,
 } from "./types";
 import MathText from "./components/MathText";
+import WorkspaceRichText from "./components/WorkspaceRichText";
 import "./App.css";
 import VoiceTutor from "./components/VoiceTutor";
 import { useVoiceTutor } from "./hooks/useVoiceTutor";
@@ -1171,6 +1173,7 @@ function WorkspacePanel({
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [solution, setSolution] = useState<WorkspaceSolution | null>(null);
   const [attempts, setAttempts] = useState<WorkspaceAttempt[]>([]);
+  const [followUps, setFollowUps] = useState<WorkspaceFollowUp[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [sentInvitations, setSentInvitations] = useState<WorkspaceInvitation[]>([]);
   const [performanceMember, setPerformanceMember] =
@@ -1509,6 +1512,7 @@ function WorkspacePanel({
       );
 
       setSelectedQuestion(response.data as WorkspaceQuestion);
+      setFollowUps([]);
 
       const solutionResponse = await getWorkspaceQuestionSolution(
         Number(selectedWorkspace.id),
@@ -1856,14 +1860,17 @@ function WorkspacePanel({
     setError("");
 
     try {
-      await postWorkspaceQuestionFollowUp(
+      const response = await postWorkspaceQuestionFollowUp(
         Number(selectedWorkspace.id),
         Number(selectedQuestion.id),
         followUp.trim(),
       );
 
+      const createdFollowUp = response.data as WorkspaceFollowUp;
+
+      setFollowUps((current) => [...current, createdFollowUp]);
       setFollowUp("");
-      setMessage("Follow-up question submitted.");
+      setMessage("Follow-up answered.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit follow-up.");
     } finally {
@@ -2596,9 +2603,9 @@ function WorkspacePanel({
                                     <h4>
                                       {(solution.result_json as any).user_question.question}
                                     </h4>
-                                    <p>
+                                    <WorkspaceRichText>
                                       {(solution.result_json as any).user_question.solution}
-                                    </p>
+                                    </WorkspaceRichText>
                                   </>
                                 ) : (
                                   <pre>
@@ -2611,6 +2618,37 @@ function WorkspacePanel({
                             </div>
                           )}
 
+                          {followUps.length > 0 && (
+                            <div className="workspace-followups">
+                              <div className="workspace-card-header">
+                                <div>
+                                  <h3>Follow-ups</h3>
+                                  <span>{followUps.length} answered</span>
+                                </div>
+                              </div>
+
+                              {followUps.map((item, index) => (
+                                <div
+                                  className="workspace-followup-item"
+                                  key={item.id ?? `${item.created_at ?? "followup"}-${index}`}
+                                >
+                                  <div className="workspace-followup-question">
+                                    <strong>You asked</strong>
+                                    <p>{item.question}</p>
+                                  </div>
+
+                                  {item.answer && (
+                                    <div className="workspace-followup-answer">
+                                      <strong>Answer</strong>
+                                      <WorkspaceRichText>
+                                        {item.answer}
+                                      </WorkspaceRichText>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="workspace-attempts">
                             <div className="workspace-card-header">
                               <div>
@@ -3392,9 +3430,9 @@ function WorkspacePanel({
                           )}
 
                           {typeof solutionText === "string" ? (
-                            <p className="workspace-guided-solution-text">
+                            <WorkspaceRichText className="workspace-guided-solution-text">
                               {solutionText}
-                            </p>
+                            </WorkspaceRichText>
                           ) : (
                             <pre>
                               {JSON.stringify(readableData, null, 2)}
@@ -4114,8 +4152,3 @@ function HistoryReview({ historyDetail }: { historyDetail: HistoryDetail }) {
 }
 
 export default App;
-
-
-
-
-

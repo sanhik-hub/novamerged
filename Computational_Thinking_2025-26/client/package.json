@@ -14,7 +14,10 @@
     "motion": "^13.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-katex": "^3.1.0"
+    "react-katex": "^3.1.0",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

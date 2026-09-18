@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 from typing import Any
 
 from .entities import ParsedQuery
@@ -67,7 +67,7 @@ class NLURouter:
                 return RouteDecision(
                     route="computation",
                     intent=intent,
-                    provider="wolfram",
+                    provider="gemini",
                     operation="evaluate",
                     confidence=query.confidence,
                     reason="Contextual evaluation of the previous problem.",
@@ -77,7 +77,7 @@ class NLURouter:
                 return RouteDecision(
                     route="computation",
                     intent=intent,
-                    provider="wolfram",
+                    provider="gemini",
                     operation="plot",
                     confidence=query.confidence,
                     reason="Contextual plot request.",
@@ -148,7 +148,7 @@ class NLURouter:
             return RouteDecision(
                 route="computation",
                 intent=intent,
-                provider="wolfram",
+                provider="gemini",
                 operation=intent,
                 confidence=query.confidence,
                 reason="Deterministic computational operation.",
@@ -161,7 +161,7 @@ class NLURouter:
             return RouteDecision(
                 route="computation",
                 intent=intent,
-                provider="wolfram",
+                provider="gemini",
                 operation="plot",
                 confidence=query.confidence,
                 reason="Graphing is handled by the computational engine.",

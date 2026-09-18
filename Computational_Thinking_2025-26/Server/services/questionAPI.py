@@ -260,7 +260,48 @@ response_schema2 = {
 }
 
 
+def call_gemini_text_with_fallback(prompt: str) -> str:
+    models = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+    ]
 
+    for key_index, key in enumerate(
+        (api_key1, api_key2),
+        start=1,
+    ):
+        if not key:
+            continue
+
+        client = genai.Client(api_key=key)
+
+        for model in models:
+            try:
+                print(
+                    f"Trying text generation key {key_index}, model {model}"
+                )
+
+                response = client.models.generate_content(
+                    model=model,
+                    contents=[prompt],
+                )
+
+                if response.text:
+                    print(
+                        f"Text generation success: key {key_index}, model {model}"
+                    )
+                    return response.text.strip()
+
+                raise RuntimeError("Gemini returned an empty text response")
+
+            except Exception as error:
+                print(
+                    f"Text generation failed: key {key_index}, "
+                    f"model {model}: {type(error).__name__}: {error}"
+                )
+                continue
+
+    raise RuntimeError("All Gemini text-generation attempts failed")
     
 
 def call_gemini_with_fallback(prompt: str, img_url: str, response_schema: dict):
@@ -429,6 +470,20 @@ Show the important intermediate steps, explain the reasoning clearly, and state 
 
     return response
 
+
+def generate_gemini_response(
+    prompt: str,
+    system_prompt: str | None = None,
+) -> str:
+    if system_prompt:
+        combined_prompt = (
+            f"System instructions:\n{system_prompt}\n\n"
+            f"User request:\n{prompt}"
+        )
+    else:
+        combined_prompt = prompt
+
+    return call_gemini_text_with_fallback(combined_prompt)
 
 def get_Doubtresponse(username, WrongAnsweredquestion, QuestionJson):
     

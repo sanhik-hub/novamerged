@@ -72,10 +72,11 @@ class ProviderRouter:
         temperature=None,
         system_prompt=None,
         enable_thinking=False,
+        provider: str = "gemini",
     ):
-        provider = self.get_provider("local_llm")
+        selected = self.get_provider(provider)
 
-        return provider.generate(
+        return selected.generate(
             prompt=prompt,
             max_tokens=max_tokens,
             temperature=temperature,

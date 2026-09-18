@@ -1,4 +1,4 @@
-import re
+﻿import re
 from typing import Optional
 
 from rapidfuzz import fuzz
@@ -15,7 +15,7 @@ class LanguageParser:
     Its job is:
 
         natural language
-              ↓
+              â†“
         structured query
 
     Computation is handled later by SymPy/Wolfram.
@@ -308,9 +308,9 @@ class LanguageParser:
     def _normalize_text(self, text: str) -> str:
         text = text.lower().strip()
 
-        text = text.replace("²", "^2")
-        text = text.replace("³", "^3")
-        text = text.replace("⁴", "^4")
+        text = text.replace("Â²", "^2")
+        text = text.replace("Â³", "^3")
+        text = text.replace("â´", "^4")
 
         text = re.sub(r"\s+", " ", text)
 
@@ -369,7 +369,17 @@ class LanguageParser:
             "iff",
         ]
 
-        if any(marker in text_lower for marker in reasoning_markers):
+        if any(
+            (
+                marker == "iff"
+                and re.search(r"\biff\b", text_lower)
+            )
+            or (
+                marker != "iff"
+                and marker in text_lower
+            )
+            for marker in reasoning_markers
+        ):
             return Intent.EXPLAIN, 1.0
 
         # =========================================================
