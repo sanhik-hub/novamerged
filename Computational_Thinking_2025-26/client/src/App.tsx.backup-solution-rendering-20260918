@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   login,
@@ -56,7 +56,6 @@ import type {
 } from "./types";
 import MathText from "./components/MathText";
 import WorkspaceRichText from "./components/WorkspaceRichText";
-import WorkspaceSolutionText from "./components/WorkspaceSolutionText";
 import "./App.css";
 import VoiceTutor from "./components/VoiceTutor";
 import { useVoiceTutor } from "./hooks/useVoiceTutor";
@@ -2598,65 +2597,23 @@ function WorkspacePanel({
                               </div>
 
                               <div className="workspace-solution-content">
-                                {(() => {
-                                  const rawSolution = solution.result_json as any;
-
-                                  let solutionData: any = rawSolution;
-
-                                  if (typeof solutionData === "string") {
-                                    try {
-                                      solutionData = JSON.parse(solutionData);
-                                    } catch {
-                                      solutionData = {
-                                        solution: solutionData,
-                                      };
-                                    }
-                                  }
-
-                                  const resultData =
-                                    solutionData?.result_json ??
-                                    solutionData?.result ??
-                                    solutionData;
-
-                                  let readableData: any = resultData;
-
-                                  if (typeof readableData === "string") {
-                                    try {
-                                      readableData = JSON.parse(readableData);
-                                    } catch {
-                                      readableData = {
-                                        solution: readableData,
-                                      };
-                                    }
-                                  }
-
-                                  const originalQuestion =
-                                    readableData?.user_question;
-
-                                  const solutionText =
-                                    originalQuestion?.solution ??
-                                    readableData?.solution ??
-                                    readableData?.explanation ??
-                                    readableData?.final_solution;
-
-                                  return (
-                                    <>
-                                      {originalQuestion?.question && (
-                                        <h4>{String(originalQuestion.question)}</h4>
-                                      )}
-
-                                      {typeof solutionText === "string" ? (
-                                        <WorkspaceSolutionText className="workspace-guided-solution-text">
-                                          {solutionText}
-                                        </WorkspaceSolutionText>
-                                      ) : (
-                                        <pre>
-                                          {JSON.stringify(readableData, null, 2)}
-                                        </pre>
-                                      )}
-                                    </>
-                                  );
-                                })()}
+                                {typeof (solution.result_json as any)?.user_question
+                                  ?.solution === "string" ? (
+                                  <>
+                                    <h4>
+                                      {(solution.result_json as any).user_question.question}
+                                    </h4>
+                                    <WorkspaceRichText className="workspace-guided-solution-text">
+                                      {(solution.result_json as any).user_question.solution}
+                                    </WorkspaceRichText>
+                                  </>
+                                ) : (
+                                  <pre>
+                                    {typeof solution.result_json === "string"
+                                      ? solution.result_json
+                                      : JSON.stringify(solution.result_json, null, 2)}
+                                  </pre>
+                                )}
                               </div>
                             </div>
                           )}

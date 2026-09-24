@@ -1,0 +1,126 @@
+﻿import React from "react";
+import MathText from "./MathText";
+
+type WorkspaceSolutionTextProps = {
+  children: string;
+  className?: string;
+};
+
+function normalizeSolutionMath(value: string) {
+  return value
+    .trim()
+    .replace(/−/g, "-")
+    .replace(/∗/g, "*")
+    .replace(/×/g, "*")
+    .replace(/\b1sqrt\b/gi, "1/sqrt")
+    .replace(/\bsqrt\b/gi, "sqrt")
+    .replace(/\bddx\b/gi, "d/dx")
+    .replace(/\bdudx\b/gi, "du/dx")
+    .replace(/\bdydx\b/gi, "dy/dx")
+    .replace(/\bdydu\b/gi, "dy/du")
+    .replace(/\bxa\b/g, "x/a")
+    .replace(/\b1a\b/g, "1/a")
+    .replace(/\ba∗sqrt\b/gi, "a*sqrt")
+    .replace(/\ba\*sqrt\b/gi, "a*sqrt");
+}
+
+/*
+ * Solution text can contain inline mathematical expressions enclosed
+ * in backticks, for example:
+ *
+ *   `xa`
+ *   `dydx`
+ *   `1sqrt`(1-u²)
+ *   `a∗sqrt`(1-x²/a²)
+ *
+ * Extract those expressions first so they can be normalized consistently.
+ */
+const MATH_TOKEN =
+  /`[^`]+`(?:\s*\([^)]*\))?|`[^`]+`/g;
+
+function renderLine(line: string, lineIndex: number) {
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+
+  for (const match of line.matchAll(MATH_TOKEN)) {
+    const start = match.index ?? 0;
+    const rawValue = match[0];
+
+    if (start > cursor) {
+      nodes.push(
+        <span key={`text-${lineIndex}-${cursor}`}>
+          {line.slice(cursor, start)}
+        </span>,
+      );
+    }
+
+    const value = rawValue
+      .replace(/^`/, "")
+      .replace(/`(\s*\([^)]*\))?$/, "$1");
+
+    nodes.push(
+      <MathText key={`math-${lineIndex}-${start}`}>
+        {normalizeSolutionMath(value)}
+      </MathText>,
+    );
+
+    cursor = start + rawValue.length;
+  }
+
+  if (cursor < line.length) {
+    nodes.push(
+      <span key={`text-${lineIndex}-${cursor}`}>
+        {line.slice(cursor)}
+      </span>,
+    );
+  }
+
+  return nodes.length > 0 ? nodes : line;
+}
+
+function splitSolutionIntoParagraphs(solution: string) {
+  const normalized = String(solution)
+    .replace(/\r\n?/g, "\n")
+    .trim();
+
+  if (!normalized) {
+    return [];
+  }
+
+  const steps = normalized
+    .split(/(?=\bStep\s+\d+\s*:)/gi)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (steps.length > 1) {
+    return steps;
+  }
+
+  return normalized
+    .split(/\n\s*\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+export default function WorkspaceSolutionText({
+  children,
+  className,
+}: WorkspaceSolutionTextProps) {
+  const paragraphs = splitSolutionIntoParagraphs(children);
+
+  return (
+    <div
+      className={
+        className
+          ? `workspace-solution-text ${className}`
+          : "workspace-solution-text"
+      }
+    >
+      {paragraphs.map((paragraph, index) => (
+        <div className="workspace-solution-line" key={index}>
+          {renderLine(paragraph, index)}
+        </div>
+      ))}
+    </div>
+  );
+}

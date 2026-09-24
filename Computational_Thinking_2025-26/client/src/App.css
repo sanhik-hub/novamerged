@@ -3501,3 +3501,16 @@ input:focus, textarea:focus, select:focus {
 .voice-mute-btn.muted:hover {
   background: rgba(245, 158, 11, 0.25);
 }
+
+.workspace-solution-text {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  line-height: 1.75;
+}
+
+.workspace-solution-line {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
