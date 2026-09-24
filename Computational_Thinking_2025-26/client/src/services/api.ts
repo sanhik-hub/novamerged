@@ -487,6 +487,24 @@ export function getWorkspaceQuestionDetails(
   );
 }
 
+
+export function deleteWorkspaceQuestion(
+  workspaceId: number,
+  questionId: number,
+): WorkspaceDataResponse<{ id: number; deleted: boolean }> {
+  return request<
+    WorkspaceApiResponse<{ id: number; deleted: boolean }>
+  >(
+    "/WorkspaceQuestionDelete",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        WorkspaceId: workspaceId,
+        QuestionId: questionId,
+      }),
+    },
+  );
+}
 export function getWorkspaceQuestionSolution(
   workspaceId: number,
   questionId: number,

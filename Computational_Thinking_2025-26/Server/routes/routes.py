@@ -16,6 +16,8 @@
     create_workspace_question,
     get_workspace_questions,
     get_workspace_question,
+    delete_workspace_question,
+
 
 )
 from services.workspace_computation_service import (
@@ -1752,6 +1754,71 @@ def register_routes(app):
         return {
             "data": result,
         }, 200
+
+    @app.route("/WorkspaceQuestionDelete", methods=["POST"])
+    def workspace_question_delete():
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Request body must be a JSON object"}, 400
+
+        allowed_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        unexpected = sorted(set(data.keys()) - allowed_fields)
+        if unexpected:
+            return {"error": f"Unexpected fields: {unexpected}"}, 400
+
+        required_fields = {
+            "WorkspaceId",
+            "QuestionId",
+        }
+
+        missing = sorted(required_fields - set(data.keys()))
+        if missing:
+            return {"error": f"Missing required fields: {missing}"}, 400
+
+        workspace_id = data["WorkspaceId"]
+        question_id = data["QuestionId"]
+
+        if isinstance(workspace_id, bool) or not isinstance(workspace_id, int):
+            return {"error": "WorkspaceId must be an integer"}, 400
+
+        if isinstance(question_id, bool) or not isinstance(question_id, int):
+            return {"error": "QuestionId must be an integer"}, 400
+
+        user, auth_error = get_authenticated_user()
+        if auth_error:
+            return auth_error
+
+        result, error = delete_workspace_question(
+            username=user.username,
+            workspace_id=workspace_id,
+            question_id=question_id,
+        )
+
+        if error in {
+            "Workspace not found",
+            "Workspace question not found",
+        }:
+            return {"error": error}, 404
+
+        if error in {
+            "You are not a member of this workspace",
+            "You are not allowed to delete this question",
+        }:
+            return {"error": error}, 403
+
+        if error:
+            return {"error": error}, 400
+
+        return {
+            "message": "Workspace question deleted successfully",
+            "data": result,
+        }, 200
+
 
     @app.route("/WorkspaceQuestionSolution", methods=["POST"])
     def workspace_question_solution():

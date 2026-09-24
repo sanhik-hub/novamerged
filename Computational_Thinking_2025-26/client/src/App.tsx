@@ -26,6 +26,7 @@ import {
   createWorkspaceQuestion,
   getWorkspaceQuestions,
   getWorkspaceQuestionDetails,
+  deleteWorkspaceQuestion,
   getWorkspaceQuestionSolution,
   computeWorkspaceQuestion,
   createWorkspaceAttempt,
@@ -1500,6 +1501,60 @@ function WorkspacePanel({
       setBusy(false);
     }
   }
+
+  async function deleteQuestion(question: WorkspaceQuestion) {
+    if (!selectedWorkspace?.id || !question.id) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this question permanently? Its solution, attempts, and follow-ups will also be deleted.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await deleteWorkspaceQuestion(
+        Number(selectedWorkspace.id),
+        Number(question.id),
+      );
+
+      const deletedQuestionId = Number(question.id);
+
+      setQuestions((current) =>
+        current.filter(
+          (item) => Number(item.id) !== deletedQuestionId,
+        ),
+      );
+
+      if (
+        selectedQuestion &&
+        Number(selectedQuestion.id) === deletedQuestionId
+      ) {
+        setSelectedQuestion(null);
+        setSolution(null);
+        setAttempts([]);
+        setFollowUps([]);
+        setAttachmentUrl(null);
+      }
+
+      setMessage("Question deleted permanently.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to delete the question.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   async function openQuestion(questionId: number) {
     if (!selectedWorkspace?.id) return;
 
@@ -2546,6 +2601,20 @@ function WorkspacePanel({
                         <>
                           <span className="eyebrow">Question</span>
                           <h3>{selectedQuestion.question}</h3>
+
+                          {(
+                            isAdmin ||
+                            Number(selectedQuestion.author_id) === Number(user.id)
+                          ) && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => void deleteQuestion(selectedQuestion)}
+                              disabled={busy}
+                            >
+                              Delete Question
+                            </button>
+                          )}
 
                           <div className="workspace-detail-meta">
                             <span>{selectedQuestion.visibility ?? "public"}</span>

@@ -7,6 +7,9 @@ from database.models import (
     WorkspaceSettings,
     WorkspaceInvitation,
     WorkspaceQuestion,
+    WorkspaceQuestionSolution,
+    WorkspaceQuestionAttempt,
+    WorkspaceQuestionFollowUp,
 )
 import secrets
 import string
@@ -1187,4 +1190,71 @@ def get_workspace_question(
         ),
     }, None
 
+def delete_workspace_question(
+    username: str,
+    workspace_id: int,
+    question_id: int,
+):
+    user = User.query.filter_by(username=username).first()
 
+    if not user:
+        return None, "User not found"
+
+    workspace = Workspace.query.filter_by(
+        id=workspace_id,
+        status="active",
+    ).first()
+
+    if not workspace:
+        return None, "Workspace not found"
+
+    membership = WorkspaceMember.query.filter_by(
+        workspace_id=workspace_id,
+        user_id=user.id,
+    ).first()
+
+    if not membership:
+        return None, "You are not a member of this workspace"
+
+    question = WorkspaceQuestion.query.filter_by(
+        id=question_id,
+        workspace_id=workspace_id,
+    ).first()
+
+    if not question:
+        return None, "Workspace question not found"
+
+    # Owners and admins can delete any question in the workspace.
+    # The author can delete their own question.
+    if (
+        membership.role not in {"owner", "admin"}
+        and question.author_id != user.id
+    ):
+        return None, "You are not allowed to delete this question"
+
+    try:
+        # These records depend on the question, so remove them first.
+        WorkspaceQuestionFollowUp.query.filter_by(
+            workspace_question_id=question.id,
+        ).delete(synchronize_session=False)
+
+        WorkspaceQuestionAttempt.query.filter_by(
+            workspace_question_id=question.id,
+        ).delete(synchronize_session=False)
+
+        WorkspaceQuestionSolution.query.filter_by(
+            workspace_question_id=question.id,
+        ).delete(synchronize_session=False)
+
+        # Permanently remove the question itself.
+        db.session.delete(question)
+        db.session.commit()
+
+        return {
+            "id": question_id,
+            "deleted": True,
+        }, None
+
+    except Exception:
+        db.session.rollback()
+        return None, "Failed to delete workspace question"
