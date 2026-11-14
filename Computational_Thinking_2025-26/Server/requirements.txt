@@ -8,6 +8,7 @@ gunicorn
 argon2-cffi
 rapidfuzz 
 oauthlib
+psycopg
 
 fastapi
 uvicorn[standard]
