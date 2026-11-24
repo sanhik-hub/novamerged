@@ -1,4 +1,4 @@
-import { InlineMath } from "react-katex";
+import { renderToString } from "katex";
 import { Component, type ReactNode } from "react";
 
 // ─── Math fragment detection ───────────────────────────────────────────────
@@ -150,9 +150,18 @@ class MathErrorBoundary extends Component<
 function MathFragment({ value }: { value: string }) {
   return (
     <MathErrorBoundary original={value}>
-      <InlineMath math={convertToLatex(value)} />
+      <KaTeXOutput value={value} />
     </MathErrorBoundary>
   );
+}
+
+function KaTeXOutput({ value }: { value: string }) {
+  const renderedMath = renderToString(convertToLatex(value), {
+    displayMode: false,
+    throwOnError: true,
+  });
+
+  return <span dangerouslySetInnerHTML={{ __html: renderedMath }} />;
 }
 
 // ─── Public component ──────────────────────────────────────────────────────
